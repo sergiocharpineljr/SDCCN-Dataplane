@@ -533,6 +533,15 @@ function pox {
     git clone https://github.com/noxrepo/pox.git
 }
 
+# "Install" POF
+function pof {
+    echo "Installing POF"
+    cd $MININET_DIR/pofswitch-1.3.3/
+    ./configure --enable-datapath
+    make
+    make install
+}
+
 # Install OFtest
 function oftest {
     echo "Installing oftest..."
@@ -669,6 +678,7 @@ function all {
     pox
     oftest
     cbench
+    pof
     echo "Enjoy Mininet!"
 }
 
@@ -721,6 +731,7 @@ function usage {
     printf -- ' -d: (D)elete some sensitive files from a VM image\n' >&2
     printf -- ' -e: install Mininet d(E)veloper dependencies\n' >&2
     printf -- ' -f: install Open(F)low\n' >&2
+    printf -- ' -g: install POF\n' >&2
     printf -- ' -h: print this (H)elp message\n' >&2
     printf -- ' -i: install (I)ndigo Virtual Switch\n' >&2
     printf -- ' -k: install new (K)ernel\n' >&2
@@ -757,6 +768,7 @@ else
             1.3) of13;;
             *)  echo "Invalid OpenFlow version $OF_VERSION";;
             esac;;
+      g)    pof;;
       h)    usage;;
       i)    ivs;;
       k)    kernel;;
