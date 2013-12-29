@@ -777,7 +777,7 @@ class CCNHost( Host ):
                 self.insert_fib(name[0],self.peerList[name[1]])
 
     def insert_fib(self, uri, host):
-        self.cmd('ccndc add {0} tcp {1}'.format(uri,host))
+        self.cmd('ccndc add {0} udp {1}'.format(uri,host))
 
     def terminate( self ):
         "Stop node."
