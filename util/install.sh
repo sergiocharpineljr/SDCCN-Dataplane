@@ -537,7 +537,7 @@ function pox {
 function pof {
     echo "Installing POF"
     cd $MININET_DIR/pofswitch-1.3.3/
-    ./configure --enable-datapath
+    ./configure --disable-debug --disable-color --disable-echolog --enable-datapath --disable-usrcmd
     make
     make install
 }

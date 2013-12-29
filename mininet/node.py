@@ -179,6 +179,7 @@ class Node( object ):
     def write( self, data ):
         """Write data to node.
            data: string"""
+        #warn('ESCREVENDO DATA = '+data+'\n')
         os.write( self.stdin.fileno(), data )
 
     def terminate( self ):
@@ -802,6 +803,53 @@ class Switch( Node ):
         return '<%s %s: %s pid=%s> ' % (
             self.__class__.__name__, self.name, intfs, self.pid )
 
+
+class POFSwitch( Switch ):
+    "POF switch."
+
+    def __init__( self, name, dpopts='', **kwargs ):
+        """Init.
+           name: name for the switch"""
+        Switch.__init__( self, name, **kwargs )
+        pathCheck( 'pofswitch', moduleName='POF (poforwarding.org)' )
+        self.pof_proc = None
+
+    def dpctl( self, *args ):
+        "Run dpctl command"
+        warn('running cmd ' + str( args))
+        return self.cmd( ''.join( args )) #TODO TESTAR
+
+    def connected( self ):
+        "Is the switch connected to a controller?"
+        #return 'remote.is-connected=true' in self.dpctl( 'status' )
+        return True #FIXME
+
+    def start( self, controllers ):
+        """Start POF user datapath.
+           Log to /tmp/sN-{ofd,ofp}.log.
+           controllers: list of controller objects"""
+        warn("ADDING POFFF\n")
+        # Add controller
+        warn(str(controllers))
+        if len(controllers) > 1:
+            error( 'Only one controller supported.' )
+            exit( 1 )
+        # start pofswitch
+        self.cmd( 'ifconfig lo up' )
+        intfs = [ str( i ) for i in self.intfList() if not i.IP() ]
+        pout = open('/tmp/' + self.name + '-pof.log', 'w', 1) #FIXME empty
+        #self.cmd( 'pofswitch ' + self.dpopts +
+        #          ' 1> ' + ofdlog + ' 2> ' + ofdlog + ' &' )
+        self.pof_proc = Popen(['pofswitch', '-p', str(controllers[0].port),
+                '-i', controllers[0].ip], bufsize=1, close_fds=True, stdin=PIPE,
+                stdout=pout, stderr=pout)
+
+    def stop( self ):
+        "Stop OpenFlow reference user datapath."
+        self.pof_proc.kill()
+        self.deleteIntfs()
+
+        
 class UserSwitch( Switch ):
     "User-space switch."
 
