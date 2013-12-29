@@ -38,6 +38,8 @@
 #include "net/if.h"
 #include "sys/ioctl.h"
 #include "arpa/inet.h"
+#include "sys/types.h"
+#include "ifaddrs.h"
 
 /* The max number of local physical ports. */
 uint32_t poflr_device_port_num_max = POFLR_DEVICE_PORT_NUM_MAX;
@@ -235,7 +237,7 @@ static uint32_t poflr_get_hwaddr_index_by_name(const char *name, \
  *           physical net ports. The number will be stored in poflr_port_num,
  *           and the names will be stored in poflr_port_name. 
  ***********************************************************************/
-static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
+/*static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
     uint16_t count = 0, s_len = 0;
 	FILE *fp = NULL;
 	char filename[] = "/proc/net/dev";
@@ -257,7 +259,9 @@ static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num
     }
 
 	while(fgets(s_line, sizeof(s_line), fp)){
+		POF_ERROR_CPRINT_FL(1,RED, "LINHA = %s", s_line);
 		sscanf(s_line, "%*[^1-9a-zA-Z]%[^:]", name[count]);
+		POF_ERROR_CPRINT_FL(1,RED, "NAME = %s", name[count]);
 		s_len = strlen(name[count]);
 		if(s_len <= 0)
 			continue;
@@ -276,6 +280,25 @@ static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num
 
 	fclose(fp);
     return POF_OK;
+}
+*/
+
+static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
+	struct ifaddrs *addrs,*tmp;
+    uint16_t count = 0;
+
+	getifaddrs(&addrs);
+	for (tmp = addrs; tmp != NULL; tmp = tmp->ifa_next){
+	    if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET){
+			if (strcmp(tmp->ifa_name, "lo") == 0)
+				continue;
+			strcpy(name[count], tmp->ifa_name);
+			count++;
+		}
+	}
+	*num = count;
+	freeifaddrs(addrs);
+	return POF_OK;
 }
 
 /***********************************************************************
