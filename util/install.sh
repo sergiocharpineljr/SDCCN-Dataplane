@@ -542,6 +542,18 @@ function pof {
     make install
 }
 
+# "Install" CCNx
+function ccnx {
+    echo "Installing CCNx"
+    $install libpcap-dev expat libexpat1-dev libssl-dev
+    cd $BUILD_DIR/
+    git clone https://github.com/ProjectCCNx/ccnx.git
+    cd $BUILD_DIR/ccnx/
+    ./configure
+    make
+    make install
+}
+
 # Install OFtest
 function oftest {
     echo "Installing oftest..."
@@ -679,6 +691,7 @@ function all {
     oftest
     cbench
     pof
+    ccnx
     echo "Enjoy Mininet!"
 }
 
@@ -734,6 +747,7 @@ function usage {
     printf -- ' -g: install POF\n' >&2
     printf -- ' -h: print this (H)elp message\n' >&2
     printf -- ' -i: install (I)ndigo Virtual Switch\n' >&2
+    printf -- ' -j: install CCNx\n' >&2
     printf -- ' -k: install new (K)ernel\n' >&2
     printf -- ' -m: install Open vSwitch kernel (M)odule from source dir\n' >&2
     printf -- ' -n: install Mini(N)et dependencies + core files\n' >&2
@@ -771,6 +785,7 @@ else
       g)    pof;;
       h)    usage;;
       i)    ivs;;
+      j)    ccnx;;
       k)    kernel;;
       m)    modprobe;;
       n)    mn_deps;;
