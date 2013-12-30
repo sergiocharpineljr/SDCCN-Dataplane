@@ -35,6 +35,8 @@
 
 #ifdef POF_DATAPATH_ON
 
+static uint32_t output_flood(POFDP_ARG);
+
 /* Update action pointer and number in dpp when one action
  * has been done. */
 static void action_update(struct pofdp_packet *dpp){
@@ -434,7 +436,6 @@ static uint32_t execute_CALCULATE_CHECKSUM(POFDP_ARG)
     return POF_OK;
 }
 
-
 /***********************************************************************
  * Handle the action with POFAT_OUTPUT type.
  * Form:     uint32_t pofdp_action_handle_output(uint8_t *packet, \
@@ -465,6 +466,15 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_METADATA_LEN_ERROR, g_upward_xid++);
     }
 
+    // check for flooding
+    if (p->outputPortId == POFP_FLOOD){
+        return output_flood(dpp);
+    }
+    // bug.. dont know why
+    if (p->outputPortId == 0){
+        return POF_OK;
+    }
+
     dpp->output_port_id = p->outputPortId;
 
 	ret = poflr_check_port_index(dpp->output_port_id);
@@ -479,7 +489,29 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
     ret = pofdp_send_raw(dpp);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
+    printf("Executing output para portid = %d\n", p->outputPortId);
     action_update(dpp);
+    return POF_OK;
+}
+
+static uint32_t output_flood(POFDP_ARG)
+{
+    pof_port *port_ptr = NULL;
+    uint16_t port_number = 0;
+    uint32_t i, ret;
+    
+    poflr_get_port_number(&port_number);
+    poflr_get_port(&port_ptr);
+
+    for(i=0; i<port_number; i++){
+        //FIXME tirar inport
+        //printf("PORT ID = %d, NAME = %s\n", port_ptr[i].port_id, port_ptr[i].name);
+        ((pof_action_output *)dpp->act->action_data)->outputPortId = port_ptr[i].port_id;
+        //p->outputPortId = port_ptr[i].port_id;
+        //dpp->act->action_data = *p;
+        //printf("PORT ID3 = %d\n", ((pof_action_output *)dpp->act->action_data)->outputPortId);
+        ret = execute_OUTPUT(dpp);
+    }
     return POF_OK;
 }
 
