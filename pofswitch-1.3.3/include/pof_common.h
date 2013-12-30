@@ -111,11 +111,11 @@
  * On the contrary, the packet will be droped. If you want to set a complex filter, 
  * you should rewrite the function "pofdp_packet_raw_filter" in ../datapath/pof_datapath.c*/
 /* Receive any pacekt. */
-//#define POF_RECVRAW_ANYPACKET
+#define POF_RECVRAW_ANYPACKET
 /* Receive the test pacekt. */
 //#define POF_RECVRAW_TESTPACKET
 /* Drop the packet which destination hwaddr is not local. */
-#define POF_RECVRAW_DHWADDR_LOCAL
+//#define POF_RECVRAW_DHWADDR_LOCAL
 /* Drop the packet which ethernet type is not IP. */
 //define POF_RECVRAW_ETHTYPE_IP
 /* Drop the packet which ip protocol is not ICMP. */

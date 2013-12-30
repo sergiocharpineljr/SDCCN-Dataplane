@@ -58,8 +58,8 @@
 #include "vlog.h"
 #define THIS_MODULE VLM_controller
 
-#define MAX_SWITCHES 16
-#define MAX_LISTENERS 16
+#define MAX_SWITCHES 4096
+#define MAX_LISTENERS 4096
 
 struct switch_ {
     struct lswitch *lswitch;
