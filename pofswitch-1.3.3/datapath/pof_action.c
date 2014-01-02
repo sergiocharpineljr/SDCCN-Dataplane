@@ -498,14 +498,19 @@ static uint32_t output_flood(POFDP_ARG)
 {
     pof_port *port_ptr = NULL;
     uint16_t port_number = 0;
-    uint32_t i, ret;
+    uint32_t i, ret, inport;
     
     poflr_get_port_number(&port_number);
     poflr_get_port(&port_ptr);
+    inport = dpp->ori_port_id;
 
     for(i=0; i<port_number; i++){
-        //FIXME tirar inport
+        if (port_ptr[i].port_id == inport)
+            continue;
+        if (port_ptr[i].of_enable == POFLR_PORT_DISABLE)
+            continue;
         //printf("PORT ID = %d, NAME = %s\n", port_ptr[i].port_id, port_ptr[i].name);
+        dpp->ori_port_id = port_ptr[i].port_id;
         ((pof_action_output *)dpp->act->action_data)->outputPortId = port_ptr[i].port_id;
         //p->outputPortId = port_ptr[i].port_id;
         //dpp->act->action_data = *p;
