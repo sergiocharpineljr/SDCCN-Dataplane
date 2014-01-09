@@ -50,6 +50,9 @@
 /* Message queue attributes. */
 #define POF_QUEUE_MESSAGE_LEN (POF_MESSAGE_SIZE)
 
+extern char pofsc_controller_ip_addr[POF_IP_ADDRESS_STRING_LEN];
+extern uint16_t pofsc_controller_port;
+
 /* Openflow device connection description. */
 typedef struct pofsc_dev_conn_desc{
     /* Controller information. */
@@ -92,6 +95,7 @@ extern uint32_t pof_set_init_config(int argc, char *argv[]);
 extern uint32_t pof_auto_clear();
 extern uint32_t pofsc_set_controller_ip(char *ip_str);
 extern uint32_t pofsc_set_controller_port(uint16_t port);
+extern void pof_states_print();
 
 /* parse and encap. */
 extern uint32_t pof_parse_msg_from_controller(char* msg_ptr);

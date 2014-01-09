@@ -199,7 +199,8 @@ static uint32_t execute_WRITE_METADATA(POFDP_ARG)
 {
     pof_instruction_write_metadata *p = \
 			(pof_instruction_write_metadata *)dpp->ins->instruction_data;
-    uint32_t value = p->value, ret;
+    uint32_t value = p->value;
+    uint32_t ret;
 	pof_match pm = {POFDP_METADATA_FIELD_ID, p->metadata_offset, p->len};
 
 	ret = pofdp_write_32value_to_field(value, &pm, dpp);

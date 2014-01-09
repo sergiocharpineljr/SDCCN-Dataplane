@@ -59,7 +59,7 @@
 #define POF_MAX_MATCH_FIELD_NUM (8)
 
 /*Define the max instruction number of one flow entry.*/
-#define POF_MAX_INSTRUCTION_NUM (4)
+#define POF_MAX_INSTRUCTION_NUM (6)
 
 /*Define the max field number of one protocol.*/
 #define POF_MAX_PROTOCOL_FIELD_NUM (8)
@@ -68,7 +68,7 @@
 #define POF_MAX_INSTRUCTION_LENGTH  (8 + POF_MAX_ACTION_NUMBER_PER_INSTRUCTION * (POF_MAX_ACTION_LENGTH + 4))
 
 /*Define the max action number in one instruction.*/
-#define POF_MAX_ACTION_NUMBER_PER_INSTRUCTION (4)
+#define POF_MAX_ACTION_NUMBER_PER_INSTRUCTION (6)
 
 /*Define the max action number in one group.*/
 #define POF_MAX_ACTION_NUMBER_PER_GROUP (4)
@@ -491,7 +491,7 @@ typedef struct pof_instruction{
     uint8_t pad[4];   /*8 bytes aligned*/
     uint8_t  instruction_data[POF_MAX_INSTRUCTION_LENGTH];
                      /*Store the real instruction data such as "Goto-Table" */
-}pof_instruction;       //sizeof=8+(6*(44+4))=296
+}pof_instruction;       //sizeof=8+(8+(6*(44+4)))=304
 
 /* Describe the flow table struct including key length, table type.*/
 typedef struct pof_flow_table{
@@ -530,7 +530,7 @@ typedef struct pof_flow_entry{
 
     pof_match_x match[POF_MAX_MATCH_FIELD_NUM];    /*The match fields.  */
     pof_instruction instruction[POF_MAX_INSTRUCTION_NUM]; /*The instructions*/
-}pof_flow_entry;        //sizeof=40+8*40+6*296=1160
+}pof_flow_entry;        //sizeof=40+8*40+6*304=2184
 
 
 /* Discribe a particular instruction struct with each type. */
@@ -559,7 +559,7 @@ typedef struct pof_instruction_write_metadata{
     uint16_t metadata_offset; /*bit unit*/
     uint16_t len;  /*bit unit*/
     uint32_t value;
-}pof_instruction_write_metadata;    //sizeof= 8
+}pof_instruction_write_metadata;    //sizeof= 24
 
 typedef struct pof_instruction_write_metadata_from_packet{
     uint16_t metadata_offset;  /*bit unit*/
@@ -580,7 +580,7 @@ typedef struct pof_instruction_apply_actions{
     uint8_t action_num;
     uint8_t pad[7];   /*8 bytes aligned*/
     pof_action  action[POF_MAX_ACTION_NUMBER_PER_INSTRUCTION];
-}pof_instruction_apply_actions; //sizeof=8+4*48=200
+}pof_instruction_apply_actions; //sizeof=8+6*48=296
 
 typedef struct pof_action_set_field{
     pof_match_x  field_setting;
@@ -602,9 +602,8 @@ typedef struct pof_action_add_field{
     uint16_t   tag_id;  /*protocol id*/
     uint16_t   tag_pos; /*the position to add the tag into packet, bit unit*/
     uint32_t   tag_len;  /*bit number, max length is 64*/
-
     uint64_t   tag_value;
-}pof_action_add_field;    //sizeof=16
+}pof_action_add_field;    //sizeof=24
 
 typedef struct pof_action_delete_field{
     uint16_t   tag_pos;  /* the position of the tag to be deleted, bit unit*/
@@ -626,7 +625,7 @@ typedef struct pof_action_calculate_checksum{
     uint16_t   checksum_len;      /*checksum length, bit unit*/
     uint16_t   cal_startpos;          /*The start position of data to be calculated, bit unit*/
     uint16_t   cal_len;                 /*The length of data to be calculated, bit unit*/
-}pof_action_calculate_checksum; //sizeof= 8
+}pof_action_calculate_checksum; //sizeof= 16
 
 typedef struct pof_action_counter{
     uint32_t   counter_id;
@@ -676,7 +675,7 @@ typedef struct pof_counter{
     uint32_t  counter_id;  /*packet counter.*/
 
     uint64_t  value;
-}pof_counter;   //sizeof=16
+}pof_counter;   //sizeof=24
 
 /* Values for 'type' in pof_error_message. These values are immutable: they
 * will not change in future versions of the protocol (although new values may

@@ -53,7 +53,6 @@ static uint32_t pofdp_main_task(void *arg_ptr);
 static uint32_t pofdp_forward(struct pofdp_packet *dp_packet, struct pof_instruction *first_ins);
 static uint32_t pofdp_recv_raw_task(void *arg_ptr);
 static uint32_t pofdp_send_raw_task(void *arg_ptr);
-static uint32_t pofdp_packet_raw_filter(uint8_t *packet, pof_port *port_ptr);
 
 /* Malloc memery in struct pofdp_packet to store packet data. 
  * The memery should be free by free_packet_data(). */
@@ -89,7 +88,7 @@ init_packet_metadata(struct pofdp_packet *dpp, struct pofdp_metadata *metadata, 
 	}
 
 	memset(metadata, 0, len);
-	metadata->len = dpp->ori_len;
+	metadata->len = POF_HTONS(dpp->ori_len);
 	metadata->port_id = dpp->ori_port_id;
 
 	dpp->metadata_len = len;
@@ -355,7 +354,7 @@ static uint32_t pofdp_recv_raw_task(void *arg_ptr){
         }
 
         /* Check whether the OpenFlow-enabled of the port is on or not. */
-        if(port_ptr->of_enable == POFLR_PORT_DISABLE){
+        if(port_ptr->of_enable == POFLR_PORT_DISABLE || from.sll_pkttype == PACKET_OUTGOING){
             continue;
         }
 
@@ -366,7 +365,7 @@ static uint32_t pofdp_recv_raw_task(void *arg_ptr){
         }
 
         /* Filter the received raw packet by some rules. */
-        if(pofdp_packet_raw_filter(buf, port_ptr) != POF_OK){
+        if(dp.filter(buf, port_ptr, from) != POF_OK){
             continue;
         }
 		
@@ -429,9 +428,11 @@ static uint32_t pofdp_send_raw_task(void *arg){
         }
 
         /* Send the packet data out through the port. */
-        sll.sll_ifindex = dpp->output_port_id;
+        memset(&sll, 0, sizeof sll);
         sll.sll_family = AF_PACKET;
+        sll.sll_ifindex = dpp->output_port_id;
         sll.sll_protocol = POF_HTONS(ETH_P_ALL);
+
         if(sendto(sock, dpp->buf_out, dpp->output_whole_len, 0, (struct sockaddr *)&sll, sizeof(sll)) == -1){
 			free(dpp->buf_out);
             POF_ERROR_HANDLE_NO_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_SEND_MSG_FAILURE, g_upward_xid++);
@@ -557,16 +558,7 @@ uint32_t pofdp_send_packet_in_to_controller(uint16_t len, \
     return POF_OK;
 }
 
-/***********************************************************************
- * Receive RAW packet filter
- * Form:     static uint32_t pofdp_packet_raw_filter(uint8_t *packet, pof_port *port_ptr)
- * Input:    packet data, port infomation
- * Output:   NONE
- * Return:   POF_OK or Error code
- * Discribe: This function filter the RAW packet received by the local
- *           physical net port.
- ***********************************************************************/
-static uint32_t pofdp_packet_raw_filter(uint8_t *packet, pof_port *port_ptr){
+static uint32_t pofdp_promisc(uint8_t *packet, pof_port *port_ptr, struct sockaddr_ll sll){
     uint32_t *daddr, ret = POF_OK;
     uint16_t *ether_type;
     uint8_t  *ip_protocol, *eth_daddr;
@@ -588,15 +580,6 @@ static uint32_t pofdp_packet_raw_filter(uint8_t *packet, pof_port *port_ptr){
 	}
 #endif // POF_TEST_ON
 
-#ifdef POF_RECVRAW_DHWADDR_LOCAL
-    /* The destination MAC address have to be equal to
-     * local physical port MAC address. */
-    eth_daddr = (uint8_t *)packet;
-    if(memcmp(eth_daddr, port_ptr->hw_addr, POF_ETH_ALEN) != 0){
-		return POF_ERROR;
-    }
-#endif // POF_RECVRAW_DHWADDR_LOCAL
-
 #ifdef POF_RECVRAW_ETHTYPE_IP
     /* The ether type have to be IP. */
     ether_type = (uint16_t *)(packet + 2 * POF_ETH_ALEN);
@@ -617,5 +600,49 @@ static uint32_t pofdp_packet_raw_filter(uint8_t *packet, pof_port *port_ptr){
 //    return POF_OK;
     return POF_OK;
 }
+
+/***********************************************************************
+ * NONE promisc mode packet filter
+ * Form:     static uint32_t pofdp_no_promisc(uint8_t *packet, pof_port *port_ptr, struct sockaddr *sll)
+ * Input:    packet data, port infomation
+ * Output:   NONE
+ * Return:   POF_OK or Error code
+ * Discribe: This function filter the RAW packet received by the local
+ *           physical net port.
+ ***********************************************************************/
+static uint32_t pofdp_no_promisc(uint8_t *packet, pof_port *port_ptr, struct sockaddr_ll sll){
+    uint32_t *daddr, ret = POF_OK;
+    uint16_t *ether_type;
+    uint8_t  *ip_protocol, *eth_daddr;
+    uint8_t broadcast[POF_ETH_ALEN] = {
+        0xff,0xff,0xff,0xff,0xff,0xff
+    };
+
+#ifdef POF_RECVRAW_DHWADDR_LOCAL
+    eth_daddr = (uint8_t *)packet;
+    if(memcmp(eth_daddr, port_ptr->hw_addr, POF_ETH_ALEN) != 0 && \
+            memcmp(eth_daddr, broadcast, POF_ETH_ALEN) != 0){
+		return POF_ERROR;
+    }
+#endif // POF_RECVRAW_DHWADDR_LOCAL
+
+    if(sll.sll_pkttype == PACKET_OTHERHOST){
+        return POF_ERROR;
+    }
+
+    return POF_OK;
+}
+
+/* Global datapath structure. */
+struct pof_datapath dp = {
+    pofdp_no_promisc,
+    pofdp_promisc,
+#ifdef POF_PROMISC_ON
+    pofdp_promisc,
+#else // POF_PROMISC_ON
+    pofdp_no_promisc,
+#endif // POF_PROMISC_ON
+};
+
 
 #endif // POF_DATAPATH_ON

@@ -176,7 +176,11 @@ extern uint32_t poflr_counter_init(uint32_t counter_id);
 extern uint32_t poflr_counter_delete(uint32_t counter_id);
 extern uint32_t poflr_counter_cleare(uint32_t counter_id);
 extern uint32_t poflr_get_counter_value(uint32_t counter_id);
+#ifdef POF_SD2N
+extern uint32_t poflr_counter_increace(uint32_t counter_id, uint16_t byte_len);
+#else // POF_SD2N
 extern uint32_t poflr_counter_increace(uint32_t counter_id);
+#endif // POF_SD2N
 extern uint32_t poflr_init_counter();
 extern uint32_t poflr_free_counter();
 extern uint32_t poflr_empty_counter();

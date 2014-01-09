@@ -46,11 +46,14 @@
 	COMMAND(meters)				\
 	COMMAND(counters)			\
 	COMMAND(version)			\
+	COMMAND(state)			\
 	COMMAND(clear_resource)		\
 	COMMAND(enable_debug)		\
 	COMMAND(disable_debug)		\
 	COMMAND(enable_color)		\
 	COMMAND(disable_color)		\
+	COMMAND(enable_promisc)		\
+	COMMAND(disable_promisc)	\
 	COMMAND(test)
 
 /* The user commands. */
@@ -87,30 +90,46 @@ static uint8_t usr_cmd_gets(char * cmd, size_t cmd_len){
 static void
 usr_cmd_enable_debug()
 {
+	POF_COMMAND_PRINT_HEAD("enable_debug");
 	poflp_debug_enable();
+    strncpy(g_states.debug_on.cont, "ON", POF_STRING_PAIR_MAX_LEN-1);
 }
 
 static void
 usr_cmd_disable_debug()
 {
+	POF_COMMAND_PRINT_HEAD("disable_debug");
 	poflp_debug_disable();
+    strncpy(g_states.debug_on.cont, "OFF", POF_STRING_PAIR_MAX_LEN-1);
 }
 
 static void
 usr_cmd_enable_color()
 {
+	POF_COMMAND_PRINT_HEAD("enable_color");
 	poflp_color_enable();
+    strncpy(g_states.debug_color_on.cont, "ON", POF_STRING_PAIR_MAX_LEN-1);
 }
 
 static void
 usr_cmd_disable_color()
 {
+	POF_COMMAND_PRINT_HEAD("disable_color");
 	poflp_color_disable();
+    strncpy(g_states.debug_color_on.cont, "OFF", POF_STRING_PAIR_MAX_LEN-1);
+}
+
+static void
+usr_cmd_state()
+{
+	POF_COMMAND_PRINT_HEAD("state");
+    pof_states_print();
 }
 
 static void
 usr_cmd_test()
 {
+	POF_COMMAND_PRINT_HEAD("test");
 	return;
 }
 
@@ -292,7 +311,6 @@ static void flow_table(){
     uint8_t *table_num = NULL;
     int type, table_id, entry_id;
 
-	POF_COMMAND_PRINT_HEAD("tables");
     poflr_get_table_number(&table_num);
 
     for(type=0; type<POF_MAX_TABLE_TYPE; type++){
@@ -395,6 +413,7 @@ static void usr_cmd_counters(){
 }
 
 void usr_cmd_tables(){
+	POF_COMMAND_PRINT_HEAD("tables");
     flow_table();
 }
 
@@ -446,6 +465,24 @@ static void
 usr_cmd_quit()
 {
 	POF_COMMAND_PRINT_HEAD("quit");
+	return;
+}
+
+static void
+usr_cmd_enable_promisc()
+{
+    dp.filter = dp.promisc;
+	POF_COMMAND_PRINT_HEAD("Enable PROMISC.");
+    strncpy(g_states.promisc_on.cont, "ON", POF_STRING_PAIR_MAX_LEN-1);
+	return;
+}
+
+static void
+usr_cmd_disable_promisc()
+{
+    dp.filter = dp.no_promisc;
+	POF_COMMAND_PRINT_HEAD("Disable PROMISC.");
+    strncpy(g_states.promisc_on.cont, "OFF", POF_STRING_PAIR_MAX_LEN-1);
 	return;
 }
 

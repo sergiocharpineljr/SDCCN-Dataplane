@@ -1,5 +1,21 @@
 
 -----------------------------------------------------------------------------
+pofswitch-1.3.4                                                    2014-01-08
+-----------------------------------------------------------------------------
+    1. Print state information after running POFSwitch. Users can also use 
+       "-s --state" option and "state" pof command to print state information.
+    2. Fix bug about CALCULATE_CHECKSUM log print.
+    3. Change the packet-length field in METADATA from local byte order to 
+       network byte order.
+    4. Add pof command: enable_promisc and disable_promisc, which can enable 
+       and disable promisc mode. Users can also enable or disable promisc mode
+       using "./configure --disable-promisc".
+    5. Fix bug that packet to send out will be received loopback if port is 
+       enable.
+	6. Fix bug about getting port information. Thanks Sergio for reporting 
+	   bug and offering the diff file.
+       
+-----------------------------------------------------------------------------
 pofswitch-1.3.3                                                    2013-09-29
 -----------------------------------------------------------------------------
     1. Fix bug when the counter id is zero.

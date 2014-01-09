@@ -36,9 +36,9 @@ if [ "$ARCH" = "i686" ]; then ARCH="i386"; fi
 test -e /etc/debian_version && DIST="Debian"
 grep Ubuntu /etc/lsb-release &> /dev/null && DIST="Ubuntu"
 if [ "$DIST" = "Ubuntu" ] || [ "$DIST" = "Debian" ]; then
-    install='sudo apt-get -y install'
-    remove='sudo apt-get -y remove'
-    pkginst='sudo dpkg -i'
+    install=' apt-get -y install'
+    remove=' apt-get -y remove'
+    pkginst=' dpkg -i'
     # Prereqs for this script
     if ! which lsb_release &> /dev/null; then
         $install lsb-release
@@ -46,9 +46,9 @@ if [ "$DIST" = "Ubuntu" ] || [ "$DIST" = "Debian" ]; then
 fi
 test -e /etc/fedora-release && DIST="Fedora"
 if [ "$DIST" = "Fedora" ]; then
-    install='sudo yum -y install'
-    remove='sudo yum -y erase'
-    pkginst='sudo rpm -ivh'
+    install=' yum -y install'
+    remove=' yum -y erase'
+    pkginst=' rpm -ivh'
     # Prereqs for this script
     if ! which lsb_release &> /dev/null; then
         $install redhat-lsb-core
@@ -74,6 +74,9 @@ elif [ "$DIST" = "Debian" ] && [ "$ARCH" = "i386" ] && [ "$CODENAME" = "lenny" ]
     KERNEL_NAME=2.6.33.1-mininet
     KERNEL_HEADERS=linux-headers-${KERNEL_NAME}_${KERNEL_NAME}-10.00.Custom_i386.deb
     KERNEL_IMAGE=linux-image-${KERNEL_NAME}_${KERNEL_NAME}-10.00.Custom_i386.deb
+elif [ "$DIST" = "Debian" ] && [ "$ARCH" = "i386" ] && [ "$CODENAME" = "wheezy" ]; then
+    KERNEL_NAME=""
+    KERNEL_HEADERS=""
 elif [ "$DIST" = "Fedora" ]; then
     KERNEL_NAME=`uname -r`
     KERNEL_HEADERS=kernel-headers-${KERNEL_NAME}
@@ -107,10 +110,10 @@ OF13_SWITCH_REV=${OF13_SWITCH_REV:-""}
 
 function kernel {
     echo "Install Mininet-compatible kernel if necessary"
-    sudo apt-get update
+     apt-get update
     if [ "$DIST" = "Ubuntu" ] &&  [ "$RELEASE" = "10.04" ]; then
         $install linux-image-$KERNEL_NAME
-    elif [ "$DIST" = "Debian" ]; then
+    elif [ "$DIST" = "Debian" ] && [ "$CODENAME" = "lenny" ]; then
         # The easy approach: download pre-built linux-image and linux-headers packages:
         wget -c $KERNEL_LOC/$KERNEL_HEADERS
         wget -c $KERNEL_LOC/$KERNEL_IMAGE
@@ -123,11 +126,11 @@ function kernel {
         # See http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=525032
         # Generate initrd image if the .deb didn't install it:
         if ! test -e /boot/initrd.img-${KERNEL_NAME}; then
-            sudo update-initramfs -c -k ${KERNEL_NAME}
+             update-initramfs -c -k ${KERNEL_NAME}
         fi
 
         # Ensure /boot/grub/menu.lst boots with initrd image:
-        sudo update-grub
+         update-grub
 
         # The default should be the new kernel. Otherwise, you may need to modify
         # /boot/grub/menu.lst to set the default to the entry corresponding to the
@@ -162,7 +165,7 @@ function mn_deps {
 
     echo "Installing Mininet core"
     pushd $MININET_DIR
-    sudo make install
+     make install
     popd
 }
 
@@ -196,7 +199,7 @@ function of {
     ./boot.sh
     ./configure
     make
-    sudo make install
+     make install
     cd $BUILD_DIR
 }
 
@@ -225,16 +228,16 @@ function of13 {
     cmake .
     make
     cd $BUILD_DIR/
-    sudo cp ${NBEESRC}/bin/libn*.so /usr/local/lib
-    sudo ldconfig
-    sudo cp -R ${NBEESRC}/include/ /usr/
+     cp ${NBEESRC}/bin/libn*.so /usr/local/lib
+     ldconfig
+     cp -R ${NBEESRC}/include/ /usr/
 
     # Resume the install:
     cd $BUILD_DIR/ofsoftswitch13
     ./boot.sh
     ./configure
     make
-    sudo make install
+     make install
     cd $BUILD_DIR
 }
 
@@ -285,13 +288,13 @@ function wireshark {
         # libwireshark0/ on 11.04; libwireshark1/ on later
         WSDIR=`find /usr/lib -type d -name 'libwireshark*' | head -1`
         WSPLUGDIR=$WSDIR/plugins/
-        sudo cp openflow.so $WSPLUGDIR
+         cp openflow.so $WSPLUGDIR
         echo "Copied openflow plugin to $WSPLUGDIR"
     else
         # Install older version from reference source
         cd $BUILD_DIR/openflow/utilities/wireshark_dissectors/openflow
         make
-        sudo make install
+         make install
     fi
 
     # Copy coloring rules: OF is white-on-blue:
@@ -356,10 +359,10 @@ function ovs {
     # Switch can run on its own, but
     # Mininet should control the controller
     if [ -e /etc/init.d/openvswitch-controller ]; then
-        if sudo service openvswitch-controller stop; then
+        if  service openvswitch-controller stop; then
             echo "Stopped running controller"
         fi
-        sudo update-rc.d openvswitch-controller disable
+         update-rc.d openvswitch-controller disable
     fi
 
     if [ $ovspresent = 1 ]; then
@@ -377,10 +380,10 @@ function ovs {
             $install git-core
             # Install Autoconf 2.63+ backport from Debian Backports repo:
             # Instructions from http://backports.org/dokuwiki/doku.php?id=instructions
-            sudo su -c "echo 'deb http://www.backports.org/debian lenny-backports main contrib non-free' >> /etc/apt/sources.list"
-            sudo apt-get update
-            sudo apt-get -y --force-yes install debian-backports-keyring
-            sudo apt-get -y --force-yes -t lenny-backports install autoconf
+             su -c "echo 'deb http://www.backports.org/debian lenny-backports main contrib non-free' >> /etc/apt/sources.list"
+             apt-get update
+             apt-get -y --force-yes install debian-backports-keyring
+             apt-get -y --force-yes -t lenny-backports install autoconf
         fi
     else
         $install git
@@ -395,14 +398,14 @@ function ovs {
     BUILDDIR=/lib/modules/${KERNEL_NAME}/build
     if [ ! -e $BUILDDIR ]; then
         echo "Creating build sdirectory $BUILDDIR"
-        sudo mkdir -p $BUILDDIR
+         mkdir -p $BUILDDIR
     fi
     opts="--with-linux=$BUILDDIR"
     mkdir -p $OVS_BUILD
     cd $OVS_BUILD
     ../configure $opts
     make
-    sudo make install
+     make install
 
     modprobe
 }
@@ -420,9 +423,9 @@ function remove_ovs {
         for s in $scripts; do
             s=$(basename $s)
             echo SCRIPT $s
-            sudo service $s stop
-            sudo rm -f /etc/init.d/$s
-            sudo update-rc.d -f $s remove
+             service $s stop
+             rm -f /etc/init.d/$s
+             update-rc.d -f $s remove
         done
     fi
     echo "Done removing OVS"
@@ -441,7 +444,7 @@ function ivs {
     git clone git://github.com/floodlight/ivs $IVS_SRC -b $IVS_TAG --recursive
     cd $IVS_SRC
     make
-    sudo make install
+     make install
 }
 
 # Install NOX with tutorial files
@@ -536,8 +539,9 @@ function pox {
 # "Install" POF
 function pof {
     echo "Installing POF"
-    cd $MININET_DIR/pofswitch-1.3.3/
-    ./configure --disable-debug --disable-color --disable-echolog --enable-datapath --disable-usrcmd
+    cd $MININET_DIR/pofswitch-1.3.4/
+    #./configure --disable-debug --disable-color --disable-echolog --enable-datapath --disable-usrcmd
+    ./configure --enable-datapath
     make
     make install
 }
@@ -582,7 +586,7 @@ function cbench {
     sh boot.sh
     ./configure --with-openflow-src-dir=$BUILD_DIR/openflow
     make
-    sudo make install || true # make install fails; force past this
+     make install || true # make install fails; force past this
 }
 
 function vm_other {
@@ -600,7 +604,7 @@ function vm_other {
     #else
     #    BLACKLIST=/etc/modprobe.d/blacklist
     #fi
-    #sudo sh -c "echo 'blacklist net-pf-10\nblacklist ipv6' >> $BLACKLIST"
+    # sh -c "echo 'blacklist net-pf-10\nblacklist ipv6' >> $BLACKLIST"
 
     # Disable IPv6
     if ! grep 'disable IPv6' /etc/sysctl.conf; then
@@ -609,18 +613,18 @@ function vm_other {
 # Mininet: disable IPv6
 net.ipv6.conf.all.disable_ipv6 = 1
 net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1' | sudo tee -a /etc/sysctl.conf > /dev/null
+net.ipv6.conf.lo.disable_ipv6 = 1' |  tee -a /etc/sysctl.conf > /dev/null
     fi
     # Disabling IPv6 breaks X11 forwarding via ssh
     line='AddressFamily inet'
     file='/etc/ssh/sshd_config'
     echo "Adding $line to $file"
     if ! grep "$line" $file > /dev/null; then
-        echo "$line" | sudo tee -a $file > /dev/null
+        echo "$line" |  tee -a $file > /dev/null
     fi
 
-    # Enable command auto completion using sudo; modify ~/.bashrc:
-    sed -i -e 's|# for examples$|&\ncomplete -cf sudo|' ~/.bashrc
+    # Enable command auto completion using ; modify ~/.bashrc:
+    sed -i -e 's|# for examples$|&\ncomplete -cf |' ~/.bashrc
 
     # Install tcpdump, cmd-line packet dump tool.  Also install gitk,
     # a graphical git history viewer.
@@ -639,7 +643,7 @@ net.ipv6.conf.lo.disable_ipv6 = 1' | sudo tee -a /etc/sysctl.conf > /dev/null
 
     # Reduce boot screen opt-out delay. Modify timeout in /boot/grub/menu.lst to 1:
     if [ "$DIST" = "Debian" ]; then
-        sudo sed -i -e 's/^timeout.*$/timeout         1/' /boot/grub/menu.lst
+         sed -i -e 's/^timeout.*$/timeout         1/' /boot/grub/menu.lst
     fi
 
     # Clean unneeded debs:
@@ -659,8 +663,8 @@ function modprobe {
     if [ -z "$OVS_KMODS" ]; then
       echo "OVS_KMODS not set. Aborting."
     else
-      sudo cp $OVS_KMODS $DRIVERS_DIR
-      sudo depmod -a ${KERNEL_NAME}
+       cp $OVS_KMODS $DRIVERS_DIR
+       depmod -a ${KERNEL_NAME}
     fi
     set -o nounset
 }
@@ -698,20 +702,20 @@ function all {
 # Restore disk space and remove sensitive files before shipping a VM.
 function vm_clean {
     echo "Cleaning VM..."
-    sudo apt-get clean
-    sudo apt-get autoremove
-    sudo rm -rf /tmp/*
-    sudo rm -rf openvswitch*.tar.gz
+     apt-get clean
+     apt-get autoremove
+     rm -rf /tmp/*
+     rm -rf openvswitch*.tar.gz
 
     # Remove sensistive files
     history -c  # note this won't work if you have multiple bash sessions
     rm -f ~/.bash_history  # need to clear in memory and remove on disk
     rm -f ~/.ssh/id_rsa* ~/.ssh/known_hosts
-    sudo rm -f ~/.ssh/authorized_keys*
+     rm -f ~/.ssh/authorized_keys*
 
     # Remove Mininet files
-    #sudo rm -f /lib/modules/python2.5/site-packages/mininet*
-    #sudo rm -f /usr/bin/mnexec
+    # rm -f /lib/modules/python2.5/site-packages/mininet*
+    # rm -f /usr/bin/mnexec
 
     # Clear optional dev script for SSH keychain load on boot
     rm -f ~/.bash_profile
@@ -723,8 +727,8 @@ function vm_clean {
     # Note: you can shrink the .vmdk in vmware using
     # vmware-vdiskmanager -k *.vmdk
     echo "Zeroing out disk blocks for efficient compaction..."
-    time sudo dd if=/dev/zero of=/tmp/zero bs=1M
-    sync ; sleep 1 ; sync ; sudo rm -f /tmp/zero
+    time  dd if=/dev/zero of=/tmp/zero bs=1M
+    sync ; sleep 1 ; sync ;  rm -f /tmp/zero
 
 }
 
@@ -769,7 +773,7 @@ if [ $# -eq 0 ]
 then
     all
 else
-    while getopts 'abcdefhikmnprs:tvwx03' OPTION
+    while getopts 'abcdefghijkmnprs:tvwx03' OPTION
     do
       case $OPTION in
       a)    all;;

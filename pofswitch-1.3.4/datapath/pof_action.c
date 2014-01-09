@@ -35,8 +35,6 @@
 
 #ifdef POF_DATAPATH_ON
 
-static uint32_t output_flood(POFDP_ARG);
-
 /* Update action pointer and number in dpp when one action
  * has been done. */
 static void action_update(struct pofdp_packet *dpp){
@@ -96,7 +94,6 @@ static uint32_t execute_COUNTER(POFDP_ARG)
 {
     pof_action_counter *p = (pof_action_counter *)dpp->act->action_data;
     uint32_t ret;
-
     ret = poflr_counter_increace(p->counter_id);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
@@ -415,12 +412,14 @@ static uint32_t execute_CALCULATE_CHECKSUM(POFDP_ARG)
     if(cs_len_b > 64){
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_BAD_ACTION, POFBAC_BAD_LEN, g_upward_xid++);
     }
+/*
     if(((cal_pos_b+cal_len_b) > (dpp->left_len * 8)) || (cs_pos_b+cs_len_b) > (dpp->left_len * 8)){
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_PACKET_LEN_ERROR, g_upward_xid++);
     }
     if(((cal_len_b % cs_len_b) != 0) || (((cs_pos_b - cal_pos_b) % cs_len_b) != 0)){
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_BAD_ACTION, POFBAC_BAD_LEN, g_upward_xid++);
     }
+*/
 
     ret = bzero_bit(dpp->buf_offset, cs_pos_b, cs_len_b);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
@@ -435,6 +434,7 @@ static uint32_t execute_CALCULATE_CHECKSUM(POFDP_ARG)
     action_update(dpp);
     return POF_OK;
 }
+
 
 /***********************************************************************
  * Handle the action with POFAT_OUTPUT type.
@@ -466,15 +466,6 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_METADATA_LEN_ERROR, g_upward_xid++);
     }
 
-    // check for flooding
-    if (p->outputPortId == POFP_FLOOD){
-        return output_flood(dpp);
-    }
-    // bug.. dont know why
-    if (p->outputPortId == 0){
-        return POF_OK;
-    }
-
     dpp->output_port_id = p->outputPortId;
 
 	ret = poflr_check_port_index(dpp->output_port_id);
@@ -489,34 +480,7 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
     ret = pofdp_send_raw(dpp);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
-    printf("Executing output para portid = %d\n", p->outputPortId);
     action_update(dpp);
-    return POF_OK;
-}
-
-static uint32_t output_flood(POFDP_ARG)
-{
-    pof_port *port_ptr = NULL;
-    uint16_t port_number = 0;
-    uint32_t i, ret, inport;
-    
-    poflr_get_port_number(&port_number);
-    poflr_get_port(&port_ptr);
-    inport = dpp->ori_port_id;
-
-    for(i=0; i<port_number; i++){
-        if (port_ptr[i].port_id == inport)
-            continue;
-        if (port_ptr[i].of_enable == POFLR_PORT_DISABLE)
-            continue;
-        //printf("PORT ID = %d, NAME = %s\n", port_ptr[i].port_id, port_ptr[i].name);
-        dpp->ori_port_id = port_ptr[i].port_id;
-        ((pof_action_output *)dpp->act->action_data)->outputPortId = port_ptr[i].port_id;
-        //p->outputPortId = port_ptr[i].port_id;
-        //dpp->act->action_data = *p;
-        //printf("PORT ID3 = %d\n", ((pof_action_output *)dpp->act->action_data)->outputPortId);
-        ret = execute_OUTPUT(dpp);
-    }
     return POF_OK;
 }
 
@@ -567,7 +531,7 @@ static uint32_t execute_ADD_FIELD(POFDP_ARG)
     pofdp_cover_bit(dpp->buf_offset, buf_behindtag, tag_pos_b+tag_len_b, len_b_behindtag);
 
     dpp->left_len += POF_BITNUM_TO_BYTENUM_CEIL(tag_len_b);
-    dpp->metadata->len += POF_BITNUM_TO_BYTENUM_CEIL(tag_len_b);
+    dpp->metadata->len = POF_HTONS(POF_HTONS(dpp->metadata->len) + POF_BITNUM_TO_BYTENUM_CEIL(tag_len_b));
 
     POF_DEBUG_CPRINT_FL(1,GREEN,"action_add_field has been done!");
     POF_DEBUG_CPRINT_FL_0X(1,GREEN,dpp->buf_offset,dpp->left_len,"The new packet = ");
@@ -610,7 +574,7 @@ static uint32_t execute_DELETE_FIELD(POFDP_ARG)
     pofdp_cover_bit(dpp->buf_offset, buf_temp, tag_pos_b, len_b_behindtag);
 
     dpp->left_len = POF_BITNUM_TO_BYTENUM_CEIL(dpp->left_len * POF_BITNUM_IN_BYTE - tag_len_b);
-    dpp->metadata->len = dpp->left_len + dpp->offset;
+    dpp->metadata->len = POF_HTONS(dpp->left_len + dpp->offset);
 
     if(tag_len_b_x != 0){
         *(dpp->buf_offset + dpp->left_len - 1) &= POF_MOVE_BIT_LEFT(0xff, tag_len_b_x);

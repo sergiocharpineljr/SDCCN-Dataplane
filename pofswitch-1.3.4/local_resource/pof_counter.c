@@ -152,7 +152,6 @@ uint32_t poflr_counter_clear(uint32_t counter_id){
  ***********************************************************************/
 uint32_t poflr_get_counter_value(uint32_t counter_id){
     pof_counter counter = {0};
-    uint64_t counter_value;
 
     /* Check counter_id. */
     if(!counter_id || counter_id >= poflr_counter_number){
@@ -162,10 +161,9 @@ uint32_t poflr_get_counter_value(uint32_t counter_id){
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_COUNTER_MOD_FAILED, POFCMFC_COUNTER_UNEXIST, g_recv_xid);
     }
 
-    counter_value = (poflr_counter->counter[counter_id]).value;
     counter.command = POFCC_REQUEST;
     counter.counter_id = counter_id;
-    counter.value = counter_value;
+    counter.value = (poflr_counter->counter[counter_id]).value;
     pof_NtoH_transfer_counter(&counter);
 
 	/* Delay 0.1s. */
@@ -176,7 +174,7 @@ uint32_t poflr_get_counter_value(uint32_t counter_id){
     }
 
     POF_DEBUG_CPRINT_FL(1,GREEN,"Get counter value SUC! counter id = %u, counter value = %llu", \
-                        counter_id, counter_value);
+                        counter_id, counter.value);
     return POF_OK;
 }
 

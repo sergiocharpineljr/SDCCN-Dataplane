@@ -26,6 +26,7 @@
 #ifndef _POF_DATAPATH_H_
 #define _POF_DATAPATH_H_
 
+#include <linux/if_packet.h>
 #include "pof_global.h"
 #include "pof_local_resource.h"
 #include "pof_common.h"
@@ -124,6 +125,20 @@ struct pofdp_metadata{
     uint8_t reserve;
     uint8_t data[];
 };
+
+/* Define datapath struction. */
+struct pof_datapath{
+    /* NONE promisc packet filter function. */
+    uint32_t (*no_promisc)(uint8_t *packet, pof_port *port_ptr, struct sockaddr_ll sll);
+
+    /* Promisc packet filter function. */
+    uint32_t (*promisc)(uint8_t *packet, pof_port *port_ptr, struct sockaddr_ll sll);
+
+    /* Set RAW packet filter function. */
+    uint32_t (*filter)(uint8_t *packet, pof_port *port_ptr, struct sockaddr_ll sll);
+};
+
+extern struct pof_datapath dp;
 
 #define POFDP_ARG	struct pofdp_packet *dpp
 

@@ -38,7 +38,6 @@
 #include "net/if.h"
 #include "sys/ioctl.h"
 #include "arpa/inet.h"
-#include "sys/types.h"
 #include "ifaddrs.h"
 
 /* The max number of local physical ports. */
@@ -57,6 +56,7 @@ char **poflr_port_ipaddr_str;
 uint16_t poflr_port_num = 0;
 
 static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num);
+static uint32_t poflr_get_port_num_name_by_getifaddrs(char **name, uint16_t *num);
 static uint32_t poflr_get_hwaddr_index_by_name(const char *name, \
                                                unsigned char *hwaddr, \
                                                uint32_t *index);
@@ -237,7 +237,7 @@ static uint32_t poflr_get_hwaddr_index_by_name(const char *name, \
  *           physical net ports. The number will be stored in poflr_port_num,
  *           and the names will be stored in poflr_port_name. 
  ***********************************************************************/
-/*static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
+static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
     uint16_t count = 0, s_len = 0;
 	FILE *fp = NULL;
 	char filename[] = "/proc/net/dev";
@@ -259,9 +259,7 @@ static uint32_t poflr_get_hwaddr_index_by_name(const char *name, \
     }
 
 	while(fgets(s_line, sizeof(s_line), fp)){
-		POF_ERROR_CPRINT_FL(1,RED, "LINHA = %s", s_line);
 		sscanf(s_line, "%*[^1-9a-zA-Z]%[^:]", name[count]);
-		POF_ERROR_CPRINT_FL(1,RED, "NAME = %s", name[count]);
 		s_len = strlen(name[count]);
 		if(s_len <= 0)
 			continue;
@@ -281,24 +279,27 @@ static uint32_t poflr_get_hwaddr_index_by_name(const char *name, \
 	fclose(fp);
     return POF_OK;
 }
-*/
 
-static uint32_t poflr_get_port_num_name_by_systemfile(char **name, uint16_t *num){
-	struct ifaddrs *addrs,*tmp;
+/* Thanks Sergio for reporting bug and offering the diff file.  */
+static uint32_t 
+poflr_get_port_num_name_by_getifaddrs(char **name, uint16_t *num)
+{
+    struct ifaddrs *addrs, *tmp;
     uint16_t count = 0;
 
-	getifaddrs(&addrs);
-	for (tmp = addrs; tmp != NULL; tmp = tmp->ifa_next){
-	    if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET){
-			if (strcmp(tmp->ifa_name, "lo") == 0)
-				continue;
-			strcpy(name[count], tmp->ifa_name);
-			count++;
-		}
-	}
-	*num = count;
-	freeifaddrs(addrs);
-	return POF_OK;
+    getifaddrs(&addrs);
+    for(tmp=addrs; tmp!=NULL; tmp=tmp->ifa_next){
+        if(tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET){
+            if(strcmp(tmp->ifa_name, "lo")==0){
+                continue;
+            }
+            strcpy(name[count], tmp->ifa_name);
+            count++;
+        }
+    }
+    *num = count;
+    freeifaddrs(addrs);
+    return POF_OK;
 }
 
 /***********************************************************************
@@ -360,7 +361,7 @@ uint32_t poflr_init_port(){
 		}
 	}
 
-    ret = poflr_get_port_num_name_by_systemfile(poflr_port_name, &poflr_port_num);
+    ret = poflr_get_port_num_name_by_getifaddrs(poflr_port_name, &poflr_port_num);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
     poflr_port_ipaddr_str = (char **)malloc(poflr_port_num * sizeof(ptr_t));
@@ -620,7 +621,7 @@ static uint32_t poflr_port_detect_main(char **name_old, \
 static uint32_t poflr_port_detect_info(pof_port *p, char **name, uint16_t *num){
 	uint32_t ret = POF_OK, i;
 
-	ret = poflr_get_port_num_name_by_systemfile(name, num);
+	ret = poflr_get_port_num_name_by_getifaddrs(name, num);
 	POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
 	for(i=0; i<*num; i++){
@@ -842,8 +843,6 @@ poflr_check_port_index(uint32_t id)
 {
 	uint32_t i;
 
-    if (id == POFP_FLOOD)
-        return POF_OK;
 	for(i=0; i<poflr_port_num; i++){
 		if(id == poflr_port[i].port_id){
 			return POF_OK;

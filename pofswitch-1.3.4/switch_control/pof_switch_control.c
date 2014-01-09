@@ -122,8 +122,6 @@ int main(int argc, char *argv[]){
 	}
 #endif // POF_DATAPATH_ON
 
-    POF_DEBUG_CPRINT_FL(1,GREEN,"Version: %s", POFSWITCH_VERSION);
-
     /* Start control module in Soft Switch. */
     ret = pof_localresource_init();
     POF_CHECK_RETVALUE_TERMINATE(ret);
@@ -991,13 +989,15 @@ uint32_t pofsc_send_packet_upward(uint8_t *packet, uint32_t len){
 
 /* Set the Controller's IP address. */
 uint32_t pofsc_set_controller_ip(char *ip_str){
-	strcpy(pofsc_controller_ip_addr, ip_str);
+	strncpy(pofsc_controller_ip_addr, ip_str, POF_IP_ADDRESS_STRING_LEN);
+	strncpy(g_states.ctrl_ip.cont, ip_str, POF_IP_ADDRESS_STRING_LEN);
 	return POF_OK;
 }
 
 /* Set the Controller's port. */
 uint32_t pofsc_set_controller_port(uint16_t port){
 	pofsc_controller_port = port;
+    sprintf(g_states.conn_port.cont, "%u", port);
 	return POF_OK;
 }
 

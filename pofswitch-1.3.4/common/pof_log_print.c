@@ -103,6 +103,7 @@ void pof_open_log_file(char *filename){
 	}else{
 		filename_ = "/usr/local/var/log/pofswitch.log";
 	}
+    strncpy(g_states.log_file.cont, filename_, POF_STRING_PAIR_MAX_LEN-1);
 
 	g_log.log_fp = fopen(filename_, "w");
 	if(!g_log.log_fp){

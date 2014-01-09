@@ -27,6 +27,7 @@
 #define POF_COMMON_H_
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <limits.h>
 #include <endian.h>
 #include "stdio.h"
@@ -77,6 +78,9 @@
 /* Start user command module. */
 #define POF_COMMAND_ON
 
+/* Enable promisc mode. */
+//#define POF_PROMISC_ON
+
 #endif // ENABLE_CONFIGURE_ARG
 
 
@@ -98,6 +102,8 @@
 #define POF_PERFORM_AFTER_CTRL_DISCONN  POF_AFTER_CTRL_DISCONN_RECONN
 //#define POF_PERFORM_AFTER_CTRL_DISCONN  POF_AFTER_CTRL_DISCONN_SHUT_DOWN
 
+#define POF_AUTOCLEAR
+
 /* Soft Switch performance when there is no flow entry matches the packet. */
 /* The no match packet will be send upward to the Controller. */
 #define POF_NOMATCH_PACKET_IN (1)
@@ -111,7 +117,7 @@
  * On the contrary, the packet will be droped. If you want to set a complex filter, 
  * you should rewrite the function "pofdp_packet_raw_filter" in ../datapath/pof_datapath.c*/
 /* Receive any pacekt. */
-#define POF_RECVRAW_ANYPACKET
+//#define POF_RECVRAW_ANYPACKET
 /* Receive the test pacekt. */
 //#define POF_RECVRAW_TESTPACKET
 /* Drop the packet which destination hwaddr is not local. */
@@ -156,6 +162,37 @@
 
 /* Initialize the Xid value. */
 #define POF_INITIAL_XID (0)
+
+#define POF_STRING_PAIR_MAX_LEN (64)
+struct pof_str_pair{
+    char item[POF_STRING_PAIR_MAX_LEN];
+    char cont[POF_STRING_PAIR_MAX_LEN];
+};
+
+struct pof_state {
+    struct pof_str_pair version;
+    struct pof_str_pair os_bit;
+    struct pof_str_pair byte_order;
+    struct pof_str_pair configure_arg;
+    struct pof_str_pair debug_on;
+    struct pof_str_pair debug_color_on;
+    struct pof_str_pair debug_print_echo_on;
+    struct pof_str_pair datapath_on;
+    struct pof_str_pair command_on;
+    struct pof_str_pair error_print_on;
+    struct pof_str_pair config_file;
+    struct pof_str_pair config_cmd;
+    struct pof_str_pair perform_after_ctrl_disconn;
+    struct pof_str_pair nomatch;
+    struct pof_str_pair sd2n;
+    struct pof_str_pair promisc_on;
+    struct pof_str_pair ctrl_ip;
+    struct pof_str_pair conn_port;
+    struct pof_str_pair autoclear_after_disconn;
+    struct pof_str_pair log_file;
+};
+
+extern struct pof_state g_states;
 
 #endif
 
