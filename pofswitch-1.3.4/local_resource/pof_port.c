@@ -843,6 +843,9 @@ poflr_check_port_index(uint32_t id)
 {
 	uint32_t i;
 
+    if (id == POFP_FLOOD)
+        return POF_OK;
+
 	for(i=0; i<poflr_port_num; i++){
 		if(id == poflr_port[i].port_id){
 			return POF_OK;

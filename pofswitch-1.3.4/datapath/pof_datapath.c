@@ -138,6 +138,7 @@ uint32_t pof_datapath_init(){
     POF_MALLOC_ERROR_HANDLE_RETURN_NO_UPWARD(g_pofdp_recv_raw_task_id_ptr);
     for(i=0; i<port_number; i++){
 		ret = pofdp_create_port_listen_task(g_pofdp_recv_raw_task_id_ptr + i, port_ptr + i);
+        printf("port = %d, ret = %d\n", port_ptr[i].port_id, ret);
         if(POF_OK != ret){
             POF_DEBUG_CPRINT_ERR();
             free(g_pofdp_recv_raw_task_id_ptr);
