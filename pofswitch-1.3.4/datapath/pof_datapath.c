@@ -36,6 +36,7 @@
 #include <string.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
+#include <ccn/ccn.h>
 
 #ifdef POF_DATAPATH_ON
 
@@ -197,6 +198,42 @@ static uint32_t pofdp_recv_raw(struct pofdp_packet *dpp){
     return POF_OK;
 }
 
+/*
+ * Process CCN message
+ */ 
+static void
+process_ccn_message(unsigned char *msg, size_t size)
+{
+    struct ccn_skeleton_decoder decoder = {0};
+    struct ccn_skeleton_decoder *d = &decoder;
+    ssize_t dres;
+    enum ccn_dtag dtag;
+
+    d->state |= CCN_DSTATE_PAUSE;
+    dres = ccn_skeleton_decode(d, msg, size);
+    if (d->state < 0)
+        abort(); //FIXME
+    if (CCN_GET_TT_FROM_DSTATE(d->state) != CCN_DTAG) {
+        POF_DEBUG_CPRINT_FL(1,RED,"discarding unknown message; size = %lu", (unsigned long)size);
+        return;
+    }
+    dtag = d->numval;
+    switch (dtag) {
+        case CCN_DTAG_Interest:
+            process_incoming_interest(h, face, msg, size);
+            return;
+        case CCN_DTAG_ContentObject:
+            process_incoming_content(h, face, msg, size);
+            return;
+        default:
+            break;
+    }
+    POF_DEBUG_CPRINT_FL(1,RED, "discarding unknown message; dtag=%u, size = %lu",
+             (unsigned)dtag,
+             (unsigned long)size);
+}
+
+
 /***********************************************************************
  * The task function of the datapath task
  * Form:     static void pofdp_main_task(void *arg_ptr)
@@ -235,6 +272,35 @@ static uint32_t pofdp_main_task(void *arg_ptr){
 			free_packet_data(dpp);
             POF_ERROR_HANDLE_NO_RETURN_NO_UPWARD(POFET_SOFTWARE_FAILED, POF_PACKET_LEN_ERROR);
             continue;
+        }
+
+        /* Check content store */
+        // FIXME - terminar 
+        //struct ccn_parsed_ContentObject obj = {0};
+        struct ccn_skeleton_decoder decoder = {0};
+        struct ccn_skeleton_decoder *d = &decoder;
+        ssize_t dres;
+        enum ccn_dtag dtag;
+        ssize_t msgstart = 0, length;
+        unsigned char *buf;
+        printf("SIZE = %d, BUF = %s\n", dpp->ori_len, dpp->buf);
+        printf("FIXING SIZE AND BUFFER TO APPLICATION ONLY DATA\n");
+        buf = dpp->buf + 42;
+        length = dpp->ori_len - 42;
+        printf("SIZE = %d, BUF = %s\n", length, buf);
+        dres = ccn_skeleton_decode(d, buf, length);
+        printf("FIRST BYTE IS %x\n", buf[0]);
+        printf("SECOND BYTE IS %x\n", buf[1]);
+        printf("STATE = %d\n", d->state);
+        while (d->state == 0) {
+            // XXX - substituir o process_input_message
+            process_ccn_message(buf + msgstart, d->index - msgstart);
+            msgstart = d->index;
+            if (msgstart == length)
+                return;
+            ccn_skeleton_decode(d,
+                                buf + msgstart,
+                                length - msgstart);
         }
 
 		/* Check whether the first flow table exist. */
