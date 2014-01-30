@@ -50,6 +50,16 @@ task_t g_pofdp_detect_port_task_id = 0;
 uint32_t g_pofdp_recv_q_id = POF_INVALID_QUEUEID;
 uint32_t g_pofdp_send_q_id = POF_INVALID_QUEUEID;
 
+/* Content Store */
+struct hashtb *cs_tab;
+struct cs_entry {
+    short ncomps;               /**< Number of name components plus one */
+    unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
+    int size;                   /**< Size of ContentObject */
+    struct content_entry *nextx; /**< Next to expire after us */
+    struct content_entry *prevx; /**< Expiry doubly linked for fast removal */
+};
+
 static uint32_t pofdp_main_task(void *arg_ptr);
 static uint32_t pofdp_forward(struct pofdp_packet *dp_packet, struct pof_instruction *first_ins);
 static uint32_t pofdp_recv_raw_task(void *arg_ptr);
@@ -113,6 +123,9 @@ uint32_t pof_datapath_init(){
     pof_port *port_ptr = NULL;
     uint32_t i, ret;
     uint16_t port_number = 0, port_number_max = 0;
+
+    /* Create CCN Content Store */
+    cs_tab = hashtb_create(sizeof(struct cs_entry), NULL); // XXX - CHECK &param
 
     /* Create message queues to store send or receive message. */
     ret = pofbf_queue_create(&g_pofdp_recv_q_id);
@@ -199,9 +212,109 @@ static uint32_t pofdp_recv_raw(struct pofdp_packet *dpp){
 }
 
 /*
- * Process CCN message
+ * Process CCN Interest
+ */ 
+static int
+process_incoming_interest(unsigned char *msg, size_t size)
+{
+    struct ccn_parsed_interest parsed_interest = {0};
+    struct ccn_parsed_interest *pi = &parsed_interest;
+    struct interest_entry *ie = NULL;
+    int res;
+    if (size > 65535)
+        return 1;
+    res = ccn_parse_interest(msg, size, pi, NULL);
+    if (res < 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"error parsing Interest - code %d", res);
+        return 1;
+    }
+    size_t start = pi->offset[CCN_PI_B_Name];
+    size_t end = pi->offset[CCN_PI_E_Name];
+    struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
+    ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
+    POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
+    // check scope
+    // FIXME
+    /*if (pi->scope >= 0 && pi->scope < 2 &&
+             (face->flags & CCN_FACE_GG) == 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"interest out of scope");
+        return 1;
+    }*/
+    // check dup nonce
+    // FIXME
+    /*res = nonce_ok(h, face, msg, pi, NULL, 0);
+    if (res == 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"interest dup nonce");
+        return;
+    }*/
+    // XXX - check PIT??
+    // check CS
+    ie = hashtb_lookup(cs_tab, msg,
+                       pi->offset[CCN_PI_B_InterestLifetime]);
+    if (ie != NULL){
+        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
+        //XXX - return CS object.
+        return 0;
+    }
+    return 1;
+}
+
+/*
+ * Process CCN Content
  */ 
 static void
+process_incoming_content(unsigned char *msg, size_t size)
+{
+    struct ccn_parsed_ContentObject obj = {0};
+    struct ccn_parsed_interest *pi = &obj;
+    struct content_entry *ie = NULL;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    int res;
+    if (size > 65535)
+        return;
+    res = ccn_parse_ContentObject(msg, size, pi, NULL);
+    if (res < 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"error parsing Content - code %d", res);
+        return;
+    }
+    size_t start = pi->offset[CCN_PI_B_Name];
+    size_t end = pi->offset[CCN_PI_E_Name];
+    struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
+    ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
+    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
+    // check scope
+    // FIXME
+    /*if (pi->scope >= 0 && pi->scope < 2 &&
+             (face->flags & CCN_FACE_GG) == 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"interest out of scope");
+        return 1;
+    }*/
+    // check dup nonce
+    // FIXME
+    /*res = nonce_ok(h, face, msg, pi, NULL, 0);
+    if (res == 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"interest dup nonce");
+        return;
+    }*/
+    // XXX - check PIT??
+    // check CS
+    if (res = hashtb_seek(e, msg, size, 0) == HT_NEW_ENTRY){
+        // TODO - iniciar nova entrada
+    }else{
+        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND FOR CONTENT!");
+        //XXX - do something.
+        return;
+    }
+    // add packet to content store
+
+    return;
+}
+
+/*
+ * Process CCN message
+ */ 
+static int
 process_ccn_message(unsigned char *msg, size_t size)
 {
     struct ccn_skeleton_decoder decoder = {0};
@@ -212,25 +325,27 @@ process_ccn_message(unsigned char *msg, size_t size)
     d->state |= CCN_DSTATE_PAUSE;
     dres = ccn_skeleton_decode(d, msg, size);
     if (d->state < 0)
-        abort(); //FIXME
+        return 1; 
     if (CCN_GET_TT_FROM_DSTATE(d->state) != CCN_DTAG) {
         POF_DEBUG_CPRINT_FL(1,RED,"discarding unknown message; size = %lu", (unsigned long)size);
-        return;
+        return 1;
     }
     dtag = d->numval;
     switch (dtag) {
         case CCN_DTAG_Interest:
-            process_incoming_interest(h, face, msg, size);
-            return;
+            POF_DEBUG_CPRINT_FL(1,RED,"INTERESTTTTTTTTTTTTTTTTTTTTTT!!!!\n");
+            return process_incoming_interest(msg, size);
         case CCN_DTAG_ContentObject:
-            process_incoming_content(h, face, msg, size);
-            return;
+            POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
+            process_incoming_content(msg, size);
+            return 1;
         default:
             break;
     }
     POF_DEBUG_CPRINT_FL(1,RED, "discarding unknown message; dtag=%u, size = %lu",
              (unsigned)dtag,
              (unsigned long)size);
+    return 1;
 }
 
 
@@ -292,16 +407,20 @@ static uint32_t pofdp_main_task(void *arg_ptr){
         printf("FIRST BYTE IS %x\n", buf[0]);
         printf("SECOND BYTE IS %x\n", buf[1]);
         printf("STATE = %d\n", d->state);
+        ret = 1;
         while (d->state == 0) {
-            // XXX - substituir o process_input_message
-            process_ccn_message(buf + msgstart, d->index - msgstart);
+            ret = process_ccn_message(buf + msgstart, d->index - msgstart);
+            if (ret == 0)
+                break;
             msgstart = d->index;
             if (msgstart == length)
-                return;
+                break;
             ccn_skeleton_decode(d,
                                 buf + msgstart,
                                 length - msgstart);
         }
+        if (ret == 0)
+            continue;
 
 		/* Check whether the first flow table exist. */
 		if(POF_OK != poflr_check_flow_table_exist(POFDP_FIRST_TABLE_ID)){
