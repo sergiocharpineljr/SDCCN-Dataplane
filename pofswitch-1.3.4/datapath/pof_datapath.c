@@ -38,6 +38,9 @@
 #include <net/ethernet.h>
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <net/ethernet.h>
 
 #ifdef POF_DATAPATH_ON
 
@@ -54,11 +57,8 @@ uint32_t g_pofdp_send_q_id = POF_INVALID_QUEUEID;
 /* Content Store */
 struct hashtb *cs_tab;
 struct cs_entry {
-    short ncomps;               /**< Number of name components plus one */
     unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
     int size;                   /**< Size of ContentObject */
-    struct content_entry *nextx; /**< Next to expire after us */
-    struct content_entry *prevx; /**< Expiry doubly linked for fast removal */
 };
 
 static uint32_t pofdp_main_task(void *arg_ptr);
@@ -212,15 +212,25 @@ static uint32_t pofdp_recv_raw(struct pofdp_packet *dpp){
     return POF_OK;
 }
 
+unsigned short csum(unsigned short *buf, int nwords)
+{
+    unsigned long sum;
+    for(sum=0; nwords>0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum &0xffff);
+    sum += (sum >> 16);
+    return (unsigned short)(~sum);
+}
+
 /*
  * Process CCN Interest
  */ 
 static int
-process_incoming_interest(unsigned char *msg, size_t size)
+process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
     struct ccn_parsed_interest parsed_interest = {0};
     struct ccn_parsed_interest *pi = &parsed_interest;
-    struct interest_entry *ie = NULL;
+    struct cs_entry *ce = NULL;
     int res;
     if (size > 65535)
         return 1;
@@ -231,7 +241,7 @@ process_incoming_interest(unsigned char *msg, size_t size)
     }
     size_t start = pi->offset[CCN_PI_B_Name];
     size_t end = pi->offset[CCN_PI_E_Name];
-    struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
+    struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
     POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
     unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
@@ -255,12 +265,54 @@ process_incoming_interest(unsigned char *msg, size_t size)
     }*/
     // XXX - check PIT??
     // check CS
-    ie = hashtb_lookup(cs_tab, name, strlen(name)+1);
-    if (ie != NULL){
+    //ce = hashtb_lookup(cs_tab, name, strlen(name)+1);
+    //if (ce != NULL){
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    hashtb_start(cs_tab, e);
+    if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
-        //XXX - return CS object.
+        struct cs_entry **pce = e->data;
+        ce = *pce;
+        printf("LEN = %d, MSG = %s\n", ce->size, ce->ccnb);
+        // XXX - inverte endereços MAC, IP, UDP
+        int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
+        unsigned char* data = (unsigned char*)malloc(ce->size*sizeof(char)+sheaders);
+        struct ether_header *eh = (struct ether_header *)dpp->buf;
+        struct ether_header *eh_new = (struct ether_header *)data;
+        struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
+        struct iphdr *iph_new = (struct iphdr *)(data + sizeof(struct ether_header));
+        struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
+        struct udphdr *udph_new = (struct udphdr *)(data + sizeof(struct ether_header) + sizeof(struct iphdr));
+        int i = 0;
+        memcpy(eh_new, eh, sizeof(struct ether_header));
+        memcpy(iph_new, iph, sizeof(struct iphdr));
+        memcpy(udph_new, udph, sizeof(struct udphdr));
+        for (i = 0; i < 6; i++){
+            eh_new->ether_shost[i] = eh->ether_dhost[i];
+            eh_new->ether_dhost[i] = eh->ether_shost[i];
+        }
+        iph_new->saddr = iph->daddr;
+        iph_new->daddr = iph->saddr;
+        iph_new->tot_len = htons(sheaders - sizeof(struct ether_header) + ce->size);
+        udph_new->source = udph->dest;
+        udph_new->dest = udph->source;
+        udph_new->check = 0;
+        udph_new->len = htons(sizeof(struct udphdr)+ce->size);
+        memcpy(data+sheaders, ce->ccnb, ce->size);
+        iph_new->check = 0;
+        iph_new->check = csum((unsigned short *)(data+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
+        free(dpp->buf);
+        dpp->buf = data;
+        //XXX - send CS object to inport.
+        dpp->output_port_id = dpp->ori_port_id;
+        //dpp->buf = ce->ccnb;
+        dpp->output_packet_len = sheaders + ce->size;
+        dpp->output_whole_len = sheaders + ce->size;
+        pofdp_send_raw(dpp);
         return 0;
     }
+    hashtb_end(e);
     return 1;
 }
 
@@ -272,7 +324,7 @@ process_incoming_content(unsigned char *msg, size_t size)
 {
     struct ccn_parsed_ContentObject obj = {0};
     struct ccn_parsed_ContentObject *pco = &obj;
-    //struct content_entry *ce = NULL;
+    struct cs_entry *ce = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int res;
@@ -312,12 +364,19 @@ process_incoming_content(unsigned char *msg, size_t size)
     hashtb_start(cs_tab, e);
     if (res = hashtb_seek(e, name, strlen(name)+1, 0) == HT_NEW_ENTRY){
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE NEW ENTRY!");
-        e->data = (unsigned char*)malloc(size*sizeof(char));
-        memcpy((unsigned char *)(e->data), msg, size);
+        struct cs_entry **pdata = e->data;
+        ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
+        ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
+        memcpy(ce->ccnb, msg, size);
+        ce->size = size;
+        *pdata = ce;
+        printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
     }else{
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND FOR CONTENT! DO NOTHING.");
+        hashtb_end(e);
         return;
     }
+    hashtb_end(e);
     return;
 }
 
@@ -325,7 +384,7 @@ process_incoming_content(unsigned char *msg, size_t size)
  * Process CCN message
  */ 
 static int
-process_ccn_message(unsigned char *msg, size_t size)
+process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
     struct ccn_skeleton_decoder decoder = {0};
     struct ccn_skeleton_decoder *d = &decoder;
@@ -344,7 +403,7 @@ process_ccn_message(unsigned char *msg, size_t size)
     switch (dtag) {
         case CCN_DTAG_Interest:
             POF_DEBUG_CPRINT_FL(1,RED,"INTERESTTTTTTTTTTTTTTTTTTTTTT!!!!\n");
-            return process_incoming_interest(msg, size);
+            return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
             process_incoming_content(msg, size);
@@ -419,7 +478,7 @@ static uint32_t pofdp_main_task(void *arg_ptr){
         printf("STATE = %d\n", d->state);
         ret = 1;
         while (d->state == 0) {
-            ret = process_ccn_message(buf + msgstart, d->index - msgstart);
+            ret = process_ccn_message(dpp, buf + msgstart, d->index - msgstart);
             if (ret == 0)
                 break;
             msgstart = d->index;
