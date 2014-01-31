@@ -37,6 +37,7 @@
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <ccn/ccn.h>
+#include <ccn/hashtb.h>
 
 #ifdef POF_DATAPATH_ON
 
@@ -233,6 +234,11 @@ process_incoming_interest(unsigned char *msg, size_t size)
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
     POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
+    unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
+    memcpy(name, namebuf->buf+1, namebuf->length-1);
+    name[namebuf->length-1] = '\0';
+    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    ccn_charbuf_destroy(&namebuf);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -249,8 +255,7 @@ process_incoming_interest(unsigned char *msg, size_t size)
     }*/
     // XXX - check PIT??
     // check CS
-    ie = hashtb_lookup(cs_tab, msg,
-                       pi->offset[CCN_PI_B_InterestLifetime]);
+    ie = hashtb_lookup(cs_tab, name, strlen(name)+1);
     if (ie != NULL){
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
         //XXX - return CS object.
@@ -266,23 +271,28 @@ static void
 process_incoming_content(unsigned char *msg, size_t size)
 {
     struct ccn_parsed_ContentObject obj = {0};
-    struct ccn_parsed_interest *pi = &obj;
-    struct content_entry *ie = NULL;
+    struct ccn_parsed_ContentObject *pco = &obj;
+    //struct content_entry *ce = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int res;
     if (size > 65535)
         return;
-    res = ccn_parse_ContentObject(msg, size, pi, NULL);
+    res = ccn_parse_ContentObject(msg, size, pco, NULL);
     if (res < 0) {
         POF_DEBUG_CPRINT_FL(1,RED,"error parsing Content - code %d", res);
         return;
     }
-    size_t start = pi->offset[CCN_PI_B_Name];
-    size_t end = pi->offset[CCN_PI_E_Name];
+    size_t start = pco->offset[CCN_PCO_B_Name];
+    size_t end = pco->offset[CCN_PCO_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
     POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
+    unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
+    memcpy(name, namebuf->buf+1, namebuf->length-1);
+    name[namebuf->length-1] = '\0';
+    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    ccn_charbuf_destroy(&namebuf);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -299,15 +309,15 @@ process_incoming_content(unsigned char *msg, size_t size)
     }*/
     // XXX - check PIT??
     // check CS
-    if (res = hashtb_seek(e, msg, size, 0) == HT_NEW_ENTRY){
-        // TODO - iniciar nova entrada
+    hashtb_start(cs_tab, e);
+    if (res = hashtb_seek(e, name, strlen(name)+1, 0) == HT_NEW_ENTRY){
+        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE NEW ENTRY!");
+        e->data = (unsigned char*)malloc(size*sizeof(char));
+        memcpy((unsigned char *)(e->data), msg, size);
     }else{
-        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND FOR CONTENT!");
-        //XXX - do something.
+        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND FOR CONTENT! DO NOTHING.");
         return;
     }
-    // add packet to content store
-
     return;
 }
 
@@ -342,9 +352,9 @@ process_ccn_message(unsigned char *msg, size_t size)
         default:
             break;
     }
-    POF_DEBUG_CPRINT_FL(1,RED, "discarding unknown message; dtag=%u, size = %lu",
-             (unsigned)dtag,
-             (unsigned long)size);
+    //POF_DEBUG_CPRINT_FL(1,RED, "discarding unknown message; dtag=%u, size = %lu",
+    //         (unsigned)dtag,
+    //         (unsigned long)size);
     return 1;
 }
 
