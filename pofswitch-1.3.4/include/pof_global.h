@@ -27,6 +27,7 @@
 #define _POF_GLOBAL_H_
 
 #include "pof_type.h"
+#include <ccn/ccn.h>
 
 /*openflow version.*/
 #define POF_VERSION (0x04)
@@ -91,6 +92,10 @@
 #define POFD_FORWARD  (0)
 #define POFD_BACKWARD (1)
 
+/* CCNx stuff */
+#define CCNX_MAX_NAME_SIZE (128)
+
+
 /*Define the openflow command type.*/
 typedef enum pof_type {
     /* Immutable messages. */
@@ -147,7 +152,10 @@ typedef enum pof_type {
     /*Conter message*/
     POFT_COUNTER_MOD = 31, /* Controller/switch message */
     POFT_COUNTER_REQUEST = 32, /* Controller/switch message */
-    POFT_COUNTER_REPLY = 33 /* Controller/switch message */
+    POFT_COUNTER_REPLY = 33, /* Controller/switch message */
+
+    /* Cache messages */
+    POFT_CACHE_MOD = 34
  }pof_type;
 
 /* Table commands */
@@ -531,6 +539,24 @@ typedef struct pof_flow_entry{
     pof_match_x match[POF_MAX_MATCH_FIELD_NUM];    /*The match fields.  */
     pof_instruction instruction[POF_MAX_INSTRUCTION_NUM]; /*The instructions*/
 }pof_flow_entry;        //sizeof=40+8*40+6*304=2184
+
+typedef struct pof_cache_entry{
+    uint8_t command;
+    uint8_t pad[1];   /*8 bytes aligned*/
+    //uint32_t counter_id;
+
+    //uint64_t cookie;
+    //uint64_t cookie_mask;
+
+    uint16_t idle_timeout;
+    uint16_t hard_timeout;
+    uint16_t priority;
+
+    uint32_t  index;
+    uint8_t pad2[4];   /*8 bytes aligned*/
+
+    char name[CCNX_MAX_NAME_SIZE];    /*The match field.  */
+}pof_cache_entry;        //sizeof=40+8
 
 
 /* Discribe a particular instruction struct with each type. */

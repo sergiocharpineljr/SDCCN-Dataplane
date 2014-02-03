@@ -510,6 +510,35 @@ uint32_t pof_NtoH_transfer_flow_entry(void *ptr){
     return POF_OK;
 }
 
+uint32_t pof_HtoN_transfer_cache_entry(void *ptr){
+    pof_cache_entry *p = (pof_cache_entry *)ptr;
+    int i;
+
+    //POF_NTOHL_FUNC(p->counter_id);
+    //POF_NTOH64_FUNC(p->cookie);
+    //POF_NTOH64_FUNC(p->cookie_mask);
+    POF_NTOHS_FUNC(p->idle_timeout);
+    POF_NTOHS_FUNC(p->hard_timeout);
+    POF_NTOHS_FUNC(p->priority);
+    POF_NTOHL_FUNC(p->index);
+
+    return POF_OK;
+}
+
+uint32_t pof_NtoH_transfer_cache_entry(void *ptr){
+    pof_cache_entry *p = (pof_cache_entry *)ptr;
+
+    //POF_NTOHL_FUNC(p->counter_id);
+    //POF_NTOH64_FUNC(p->cookie);
+    //POF_NTOH64_FUNC(p->cookie_mask);
+    POF_NTOHS_FUNC(p->idle_timeout);
+    POF_NTOHS_FUNC(p->hard_timeout);
+    POF_NTOHS_FUNC(p->priority);
+    POF_NTOHL_FUNC(p->index);
+
+    return POF_OK;
+}
+
 uint32_t pof_NtoH_transfer_group(void *ptr){
     pof_group *p = (pof_group *)ptr;
     int i;

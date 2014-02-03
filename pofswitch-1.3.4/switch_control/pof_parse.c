@@ -73,6 +73,7 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
     msg_type = header_ptr->type;
     g_recv_xid = header_ptr->xid;
 
+
     /* Execute different responses according to the OpenFlow type. */
     switch(msg_type){
         case POFT_ECHO_REQUEST:
@@ -212,6 +213,10 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
 
             ret = poflr_get_counter_value(counter_ptr->counter_id);
             POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+            break;
+
+        case POFT_CACHE_MOD:
+            printf("\n\n\n\nAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEe\n\n\n\n");
             break;
 
         default:

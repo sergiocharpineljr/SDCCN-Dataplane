@@ -778,6 +778,27 @@ static void error(const unsigned char *ph){
     free(p);
 }
 
+static void cache_entry(const unsigned char *ph){
+    pof_cache_entry *p;
+
+    p = malloc(sizeof(pof_cache_entry));
+    memcpy(p,ph,sizeof(pof_cache_entry));
+    pof_NtoH_transfer_cache_entry(p);
+
+    POF_DEBUG_CPRINT(1,CYAN,"command=");
+    POF_DEBUG_CPRINT(1,WHITE,"%u ",p->command);
+    POF_DEBUG_CPRINT(1,CYAN,"idle_timeout=");
+    POF_DEBUG_CPRINT(1,WHITE,"%u ",p->idle_timeout);
+    POF_DEBUG_CPRINT(1,CYAN,"hard_timeout=");
+    POF_DEBUG_CPRINT(1,WHITE,"%u ",p->hard_timeout);
+    POF_DEBUG_CPRINT(1,CYAN,"priority=");
+    POF_DEBUG_CPRINT(1,WHITE,"%u ",p->priority);
+    POF_DEBUG_CPRINT(1,CYAN,"name=");
+    POF_DEBUG_CPRINT(1,WHITE,"%s ",p->name);
+
+    free(p);
+}
+
 static void packet_raw(const void *ph, pof_header *header_ptr){
     POF_DEBUG_CPRINT(1,BLUE,"[Header:] ");
     POF_DEBUG_CPRINT(1,CYAN,"Ver=");
@@ -917,6 +938,11 @@ void pof_debug_cprint_packet(const void * ph, uint32_t flag, int len){
         case POFT_ERROR:
             POF_DEBUG_CPRINT(1,PINK,"[ERROR:] ");
             error((uint8_t *)ph + sizeof(pof_header));
+			packet_raw(ph, header_ptr);
+            break;
+        case POFT_CACHE_MOD:
+            POF_DEBUG_CPRINT(1,PINK,"[CACHE_MOD:] ");
+            cache_entry((unsigned char *)ph + sizeof(pof_header));
 			packet_raw(ph, header_ptr);
             break;
         default:
