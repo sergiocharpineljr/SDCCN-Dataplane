@@ -343,6 +343,7 @@ process_incoming_content(unsigned char *msg, size_t size)
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
     POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
+    printf("STRLEN = %d, end-start = %d\n", strlen(namebuf->buf+1), end-start);
     unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
     memcpy(name, namebuf->buf+1, namebuf->length-1);
     name[namebuf->length-1] = '\0';
@@ -369,6 +370,10 @@ process_incoming_content(unsigned char *msg, size_t size)
         POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
         struct cs_entry **pdata = e->data;
         ce = *pdata;
+        if (ce == NULL){
+            hashtb_end(e);
+            return;
+        }
         if (ce != NULL && ce->ccnb != NULL){
             POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
             free(ce->ccnb);
