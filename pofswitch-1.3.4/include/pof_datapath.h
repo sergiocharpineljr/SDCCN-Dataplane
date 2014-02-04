@@ -173,5 +173,13 @@ extern uint32_t pofdp_write_32value_to_field(uint32_t value, const struct pof_ma
 											 struct pofdp_packet *dpp);
 extern uint32_t pofdp_get_32value(uint32_t *value, uint8_t type, void *u_, const struct pofdp_packet *dpp);
 
+/* Content Store */
+struct hashtb *cs_tab;
+struct cs_entry {
+    unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
+    int size;                   /**< Size of ContentObject */
+};
+
+
 #endif // POF_DATAPATH_ON
 #endif // _POF_DATAPATH_H_

@@ -30,6 +30,8 @@
 #include "../include/pof_local_resource.h"
 #include "../include/pof_byte_transfer.h"
 #include "../include/pof_log_print.h"
+#include "../include/pof_datapath.h"
+#include "../include/ccn/hashtb.h"
 
 /* Xid in OpenFlow header received from Controller. */
 uint32_t g_recv_xid = POF_INITIAL_XID;
@@ -52,9 +54,13 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
     pof_port          *port_ptr;
     pof_meter         *meter_ptr;
     pof_group         *group_ptr;
+    pof_cache_entry   *cache_ptr;
     uint32_t          ret = POF_OK;
     uint16_t          len;
     uint8_t           msg_type;
+    struct cs_entry *ce = NULL;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
 
     header_ptr = (pof_header*)msg_ptr;
     len = POF_NTOHS(header_ptr->length);
@@ -216,7 +222,22 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
             break;
 
         case POFT_CACHE_MOD:
-            printf("\n\n\n\nAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEe\n\n\n\n");
+            cache_ptr = (pof_cache_entry*)(msg_ptr + sizeof(pof_header));
+            pof_NtoH_transfer_cache_entry(cache_ptr);
+            char *name = cache_ptr->name+1;
+
+            // add to cache table
+            name[strlen(name)] = '\0';
+            hashtb_start(cs_tab, e);
+            if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_NEW_ENTRY){
+                POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE - ADD NEW ENTRY! NAME = %s", name);
+                struct cs_entry **pdata = e->data;
+                ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
+                ce->ccnb = NULL;
+                ce->size = 0;
+                *pdata = ce;
+            }
+            hashtb_end(e);
             break;
 
         default:

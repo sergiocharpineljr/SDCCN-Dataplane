@@ -55,11 +55,11 @@ uint32_t g_pofdp_recv_q_id = POF_INVALID_QUEUEID;
 uint32_t g_pofdp_send_q_id = POF_INVALID_QUEUEID;
 
 /* Content Store */
-struct hashtb *cs_tab;
-struct cs_entry {
-    unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
-    int size;                   /**< Size of ContentObject */
-};
+//struct hashtb *cs_tab;
+//struct cs_entry {
+//    unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
+//    int size;                   /**< Size of ContentObject */
+//};
 
 static uint32_t pofdp_main_task(void *arg_ptr);
 static uint32_t pofdp_forward(struct pofdp_packet *dp_packet, struct pof_instruction *first_ins);
@@ -271,10 +271,13 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     struct hashtb_enumerator *e = &ee;
     hashtb_start(cs_tab, e);
     if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
-        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
         struct cs_entry **pce = e->data;
         ce = *pce;
-        printf("LEN = %d, MSG = %s\n", ce->size, ce->ccnb);
+        if (ce == NULL || ce->ccnb == NULL){
+            hashtb_end(e);
+            return 1;
+        }
+        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
         // XXX - inverte endereços MAC, IP, UDP
         int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
         unsigned char* data = (unsigned char*)malloc(ce->size*sizeof(char)+sheaders);
@@ -362,19 +365,18 @@ process_incoming_content(unsigned char *msg, size_t size)
     // XXX - check PIT??
     // check CS
     hashtb_start(cs_tab, e);
-    if (res = hashtb_seek(e, name, strlen(name)+1, 0) == HT_NEW_ENTRY){
-        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE NEW ENTRY!");
+    if (res = hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
+        POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
         struct cs_entry **pdata = e->data;
-        ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
+        ce = *pdata;
+        if (ce != NULL && ce->ccnb != NULL){
+            POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
+            free(ce->ccnb);
+        }
         ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
         memcpy(ce->ccnb, msg, size);
         ce->size = size;
-        *pdata = ce;
         printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
-    }else{
-        POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND FOR CONTENT! DO NOTHING.");
-        hashtb_end(e);
-        return;
     }
     hashtb_end(e);
     return;
