@@ -54,13 +54,6 @@ task_t g_pofdp_detect_port_task_id = 0;
 uint32_t g_pofdp_recv_q_id = POF_INVALID_QUEUEID;
 uint32_t g_pofdp_send_q_id = POF_INVALID_QUEUEID;
 
-/* Content Store */
-//struct hashtb *cs_tab;
-//struct cs_entry {
-//    unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
-//    int size;                   /**< Size of ContentObject */
-//};
-
 static uint32_t pofdp_main_task(void *arg_ptr);
 static uint32_t pofdp_forward(struct pofdp_packet *dp_packet, struct pof_instruction *first_ins);
 static uint32_t pofdp_recv_raw_task(void *arg_ptr);
@@ -127,6 +120,7 @@ uint32_t pof_datapath_init(){
 
     /* Create CCN Content Store */
     cs_tab = hashtb_create(sizeof(struct cs_entry), NULL); // XXX - CHECK &param
+    poflr_create_cache_table();
 
     /* Create message queues to store send or receive message. */
     ret = pofbf_queue_create(&g_pofdp_recv_q_id);
@@ -243,11 +237,10 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
     unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
     memcpy(name, namebuf->buf+1, namebuf->length-1);
     name[namebuf->length-1] = '\0';
-    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", name, strlen(name));
     ccn_charbuf_destroy(&namebuf);
     // check scope
     // FIXME
@@ -265,18 +258,16 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     }*/
     // XXX - check PIT??
     // check CS
-    //ce = hashtb_lookup(cs_tab, name, strlen(name)+1);
-    //if (ce != NULL){
-    struct hashtb_enumerator ee;
-    struct hashtb_enumerator *e = &ee;
-    hashtb_start(cs_tab, e);
-    if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
-        struct cs_entry **pce = e->data;
-        ce = *pce;
-        if (ce == NULL || ce->ccnb == NULL){
-            hashtb_end(e);
+    if (ce = hashtb_lookup(cs_tab, name, strlen(name)+1)){
+    //struct hashtb_enumerator ee;
+    //struct hashtb_enumerator *e = &ee;
+    //hashtb_start(cs_tab, e);
+    //if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
+        //ce = e->data;
+        //if (ce == NULL)
+        //    printf("CE EH NULLL\n");
+        if (ce->size == 0)
             return 1;
-        }
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
         // XXX - inverte endereços MAC, IP, UDP
         int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
@@ -315,7 +306,6 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         pofdp_send_raw(dpp);
         return 0;
     }
-    hashtb_end(e);
     return 1;
 }
 
@@ -328,6 +318,7 @@ process_incoming_content(unsigned char *msg, size_t size)
     struct ccn_parsed_ContentObject obj = {0};
     struct ccn_parsed_ContentObject *pco = &obj;
     struct cs_entry *ce = NULL;
+    struct cache_entry *cae = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int res;
@@ -342,8 +333,6 @@ process_incoming_content(unsigned char *msg, size_t size)
     size_t end = pco->offset[CCN_PCO_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", namebuf->buf+1, namebuf->length-1); // XXX +1 ?
-    printf("STRLEN = %d, end-start = %d\n", strlen(namebuf->buf+1), end-start);
     unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
     memcpy(name, namebuf->buf+1, namebuf->length-1);
     name[namebuf->length-1] = '\0';
@@ -364,25 +353,30 @@ process_incoming_content(unsigned char *msg, size_t size)
         return;
     }*/
     // XXX - check PIT??
-    // check CS
-    hashtb_start(cs_tab, e);
-    if (res = hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
-        POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
-        struct cs_entry **pdata = e->data;
-        ce = *pdata;
-        if (ce == NULL){
-            hashtb_end(e);
-            return;
-        }
-        if (ce != NULL && ce->ccnb != NULL){
-            POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
-            free(ce->ccnb);
-        }
-        ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
-        memcpy(ce->ccnb, msg, size);
-        ce->size = size;
-        printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
+    /* add content to CS */
+    // check if we need to add to cs
+    cae = poflr_match_cache_entry(name, strlen(name)+1);
+    if (cae == NULL){
+        printf("CAE EH NULL\n");
+        return;
     }
+    printf("CAE NAME = %s\n", cae->name);
+    POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
+    hashtb_start(cs_tab, e);
+    hashtb_seek(e, name, strlen(name)+1, 0);
+    ce = e->data;
+    if (ce == NULL){
+        printf("EH NULLLL\n");
+        ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
+    }
+    if (ce->size != 0){
+        POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
+        free(ce->ccnb);
+    }
+    ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
+    memcpy(ce->ccnb, msg, size);
+    ce->size = size;
+    printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
     hashtb_end(e);
     return;
 }
@@ -497,7 +491,7 @@ static uint32_t pofdp_main_task(void *arg_ptr){
         }
         if (ret == 0)
             continue;
-
+       
 		/* Check whether the first flow table exist. */
 		if(POF_OK != poflr_check_flow_table_exist(POFDP_FIRST_TABLE_ID)){
 			POF_DEBUG_CPRINT_FL(1,RED,"Received a packet, but the first flow table does NOT exist.");

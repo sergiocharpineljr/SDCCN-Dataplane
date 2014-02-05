@@ -58,9 +58,6 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
     uint32_t          ret = POF_OK;
     uint16_t          len;
     uint8_t           msg_type;
-    struct cs_entry *ce = NULL;
-    struct hashtb_enumerator ee;
-    struct hashtb_enumerator *e = &ee;
 
     header_ptr = (pof_header*)msg_ptr;
     len = POF_NTOHS(header_ptr->length);
@@ -224,20 +221,22 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
         case POFT_CACHE_MOD:
             cache_ptr = (pof_cache_entry*)(msg_ptr + sizeof(pof_header));
             pof_NtoH_transfer_cache_entry(cache_ptr);
-            char *name = cache_ptr->name+1;
 
-            // add to cache table
-            name[strlen(name)] = '\0';
-            hashtb_start(cs_tab, e);
-            if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_NEW_ENTRY){
-                POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE - ADD NEW ENTRY! NAME = %s", name);
-                struct cs_entry **pdata = e->data;
-                ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
-                ce->ccnb = NULL;
-                ce->size = 0;
-                *pdata = ce;
+            switch (cache_ptr->command){
+                case POFCAC_ADD:
+                    ret = poflr_add_cache_entry(cache_ptr);
+                    POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    break;
+                case POFCAC_MODIFY:
+                    printf("NOT SUPPORTED YET\n");
+                    break;
+                case POFCAC_DELETE:
+                    ret = poflr_delete_cache_entry(cache_ptr);
+                    POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    break;
+                default:
+                    break; // FIXME
             }
-            hashtb_end(e);
             break;
 
         default:

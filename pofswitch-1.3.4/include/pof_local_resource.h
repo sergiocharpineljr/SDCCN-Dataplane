@@ -56,6 +56,9 @@
 #define POFLR_STATE_VALID (1)
 #define POFLR_STATE_INVALID (0)
 
+/* Define max cache indexes per entry */
+#define POFLR_CACHE_MAX_INDEXES (100)
+
 typedef struct poflr_flow_entry{
     pof_flow_entry entry;
     uint32_t state;   // POFLR_STATE_VALID or POFLR_STATE_INVALID
@@ -213,5 +216,20 @@ extern uint32_t poflr_set_port_number_max(uint32_t port_num_max);
 
 /* Set the key length. */
 extern uint32_t poflr_set_key_len(uint32_t key_len);
+
+/* Cache */
+/* Content Store */
+struct hashtb *cache_tab;
+struct cache_entry {
+    int strict;
+    char *name;
+};
+
+extern uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr);
+extern uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr);
+extern uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr);
+extern struct cache_entry* poflr_match_cache_entry(char *name, int size);
+extern void poflr_create_cache_table();
+extern void poflr_destroy_cache_table();
 
 #endif // _POF_LOCALRESOURCE_H_

@@ -197,6 +197,14 @@ typedef enum pof_flow_mod_command {
     POFFC_DELETE_STRICT = 4 /* Delete entry strictly matching wildcards and priority. */
 }pof_flow_mod_command;
 
+/* cache commands */
+typedef enum pof_cache_mod_command {
+    POFCAC_ADD = 0, /* New flow with wildcards. */
+    POFCAC_MODIFY = 1, /* Modify all matching flows. */
+    POFCAC_DELETE = 2, /* Delete all matching flows. */
+}pof_cache_mod_command;
+
+
 #define INSTRUCTIONS \
 	/* Setup the next table in the lookup pipeline */		\
 	INSTRUCTION(GOTO_TABLE, 1)								\
@@ -542,12 +550,7 @@ typedef struct pof_flow_entry{
 
 typedef struct pof_cache_entry{
     uint8_t command;
-    uint8_t pad[1];   /*8 bytes aligned*/
-    //uint32_t counter_id;
-
-    //uint64_t cookie;
-    //uint64_t cookie_mask;
-
+    uint8_t strict;
     uint16_t idle_timeout;
     uint16_t hard_timeout;
     uint16_t priority;
