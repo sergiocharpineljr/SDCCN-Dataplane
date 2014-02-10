@@ -119,8 +119,7 @@ struct cache_entry* poflr_match_cache_entry(char *name, int nsize){
 
     hashtb_start(cache_tab, e);
     for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
-        printf("scrict = %d\n", ce->strict);
-        printf("NAME = %s, ce->name = %s\n", name, ce->name); //FIXME SEG FAULT AQUI
+        ce = e->data;
         // check for strict = 1
         if (ce->strict == 1 && strcmp(ce->name, name) == 0){
             hashtb_end(e);
