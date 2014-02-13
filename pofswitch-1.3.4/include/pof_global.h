@@ -726,6 +726,7 @@ typedef enum pof_error_type {
     POFET_TABLE_FEATURES_FAILED = 13, /* Setting table features failed. */
     POFET_SOFTWARE_FAILED = 14, /* Software err, the err code is in pof_soft_error. */
     POFET_COUNTER_MOD_FAILED = 15, /* Error in counter. */
+    POFET_CACHE_MOD_FAILED = 16,
     POFET_EXPERIMENTER = 0xffff /* Experimenter error messages. */
 } pof_error_type;
 

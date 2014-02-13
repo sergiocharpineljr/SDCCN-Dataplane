@@ -176,6 +176,7 @@ extern uint32_t pofdp_get_32value(uint32_t *value, uint8_t type, void *u_, const
 /* Content Store */
 struct hashtb *cs_tab;
 struct cs_entry {
+    char* name;
     int size;                   /**< Size of ContentObject */
     unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
 };

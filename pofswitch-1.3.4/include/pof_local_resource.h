@@ -218,10 +218,14 @@ extern uint32_t poflr_set_port_number_max(uint32_t port_num_max);
 extern uint32_t poflr_set_key_len(uint32_t key_len);
 
 /* Cache */
-/* Content Store */
+/* Cache Table */
 struct hashtb *cache_tab;
 struct cache_entry {
-    int strict;
+    uint8_t strict;
+    uint16_t idle_timeout;
+    uint16_t hard_timeout;
+    uint16_t priority;
+    uint32_t  index;
     char *name;
 };
 
@@ -231,5 +235,6 @@ extern uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr);
 extern struct cache_entry* poflr_match_cache_entry(char *name, int size);
 extern void poflr_create_cache_table();
 extern void poflr_destroy_cache_table();
+extern void print_cache_tab();
 
 #endif // _POF_LOCALRESOURCE_H_

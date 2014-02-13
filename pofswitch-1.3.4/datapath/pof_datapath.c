@@ -376,6 +376,7 @@ process_incoming_content(unsigned char *msg, size_t size)
     ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
     memcpy(ce->ccnb, msg, size);
     ce->size = size;
+    ce->name = name;
     printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
     hashtb_end(e);
     return;
@@ -899,6 +900,5 @@ struct pof_datapath dp = {
     pofdp_no_promisc,
 #endif // POF_PROMISC_ON
 };
-
 
 #endif // POF_DATAPATH_ON

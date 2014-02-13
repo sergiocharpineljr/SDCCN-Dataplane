@@ -54,6 +54,10 @@ uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
     /* Create entry. */
     ce = e->data;
     ce->strict = cache_ptr->strict;
+    ce->idle_timeout = cache_ptr->strict;
+    ce->hard_timeout = cache_ptr->hard_timeout;
+    ce->priority = cache_ptr->priority;
+    ce->index = cache_ptr->index;
     ce->name = (char*)malloc(strlen(name)+1*sizeof(char));
     memcpy(ce->name, name, strlen(name)+1);  
     hashtb_end(e);
@@ -69,7 +73,32 @@ uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
  * Discribe: This function will modify a cache entry.
  ***********************************************************************/
 uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr){
-    return POF_OK;
+    //FIXME: IMPLEMENTAR LISTA ORDENADA PARA ISTO
+    struct cache_entry *ce = NULL;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    int i;
+    char *name = cache_ptr->name+1;
+    name[strlen(name)] = '\0';
+
+    hashtb_start(cache_tab, e);
+    for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
+        ce = e->data;
+        if (ce->index == cache_ptr->index){
+            ce->strict = cache_ptr->strict;
+            ce->idle_timeout = cache_ptr->strict;
+            ce->hard_timeout = cache_ptr->hard_timeout;
+            ce->priority = cache_ptr->priority;
+            ce->index = cache_ptr->index;
+            if (strcmp(ce->name, name) != 0){
+                free(ce->name);
+                ce->name = (char*)malloc(strlen(name)+1*sizeof(char));
+                memcpy(ce->name, name, strlen(name)+1);
+            }
+            return POF_OK;
+        }
+    }
+    return -1;
 }
 
 /***********************************************************************
@@ -81,33 +110,43 @@ uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr){
  * Discribe: This function will delete a cache entry in the flow table.
  ***********************************************************************/
 uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
-    char *name;
+    //FIXME: IMPLEMENTAR LISTA ORDENADA PARA ISTO
     struct cache_entry *ce = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
-
-    name = cache_ptr->name+1;
+    int i;
+    char *name = cache_ptr->name+1;
     name[strlen(name)] = '\0';
-    if (cache_ptr->strict == 0){
-        for (hashtb_start(cache_tab, e);; e != NULL){ // FIXME usar hashtb_n
-            ce = e->data;
-            if (ce == NULL){
-                hashtb_next(e);
-                continue;
-            }
+
+    hashtb_start(cache_tab, e);
+    for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
+        ce = e->data;
+        if (ce->index == cache_ptr->index){
             free(ce->name);
             hashtb_delete(e);
-        }
-    }else{
-        hashtb_seek(e, name, strlen(name)+1, 0);
-        ce = e->data;
-        if (ce == NULL)
+            //FIXME DELETAR ENTRADAS DA CONTENTSTORE
+            struct cs_entry *ce1;
+            struct hashtb_enumerator ee1;
+            struct hashtb_enumerator *e1 = &ee1;
+            int j;
+
+            hashtb_start(cs_tab, e1);
+            for (j = 0; j < hashtb_n(cs_tab); j++, hashtb_next(e1)){
+                ce1 = e1->data;
+                if (strncmp(ce1->name, name, strlen(name)) == 0){
+                    // check if there is another match
+                    if (!poflr_match_cache_entry(ce1->name, strlen(ce1->name)+1)){
+                        free(ce1->ccnb);
+                        free(ce1->name);
+                        hashtb_delete(e1);
+                    }
+                }
+            }
+            hashtb_end(e1);
             return POF_OK;
-        free(ce->name);
-        hashtb_delete(e);
-        hashtb_end(e);
+        }
     }
-    return POF_OK;
+    return -1;
 }
 
 /* Match content */
@@ -144,3 +183,16 @@ void poflr_destroy_cache_table(){
     return hashtb_destroy(&cache_tab);
 }
 
+void print_cache_tab(){
+    struct cache_entry *ce;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    int i;
+
+    printf("PRINTING CACHE_TAB\n");
+    hashtb_start(cache_tab, e);
+    for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
+        ce = e->data;
+        printf("%d => %s\n", ce->index, ce->name);
+    }
+}
