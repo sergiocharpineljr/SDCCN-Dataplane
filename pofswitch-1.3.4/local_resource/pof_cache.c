@@ -50,6 +50,7 @@ uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
     name[strlen(name)] = '\0';
     hashtb_start(cache_tab, e);
     if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY)
+        hashtb_end(e);
         return -1; // FIXME
     /* Create entry. */
     ce = e->data;
@@ -95,9 +96,11 @@ uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr){
                 ce->name = (char*)malloc(strlen(name)+1*sizeof(char));
                 memcpy(ce->name, name, strlen(name)+1);
             }
+            hashtb_end(e);
             return POF_OK;
         }
     }
+    hashtb_end(e);
     return -1;
 }
 
@@ -142,10 +145,12 @@ uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
                     }
                 }
             }
+            hashtb_end(e);
             hashtb_end(e1);
             return POF_OK;
         }
     }
+    hashtb_end(e);
     return -1;
 }
 
@@ -170,6 +175,7 @@ struct cache_entry* poflr_match_cache_entry(char *name, int nsize){
             return ce;
         }
     }
+    hashtb_end(e);
     return NULL;
 }
 
@@ -195,4 +201,5 @@ void print_cache_tab(){
         ce = e->data;
         printf("%d => %s\n", ce->index, ce->name);
     }
+    hashtb_end(e);
 }
