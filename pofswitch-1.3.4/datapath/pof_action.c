@@ -482,7 +482,7 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
 	ret = poflr_check_port_index(dpp->output_port_id);
 	POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
-    printf("Executing output para portid = %d\n", p->outputPortId);
+    //printf("Executing output para portid = %d\n", p->outputPortId);
 
     dpp->output_packet_offset = p->packet_offset;   /* Byte unit. */
     dpp->output_packet_len = dpp->offset + dpp->left_len - dpp->output_packet_offset;   /* Byte unit. */
@@ -520,7 +520,7 @@ static uint32_t _output(POFDP_ARG)
 	ret = poflr_check_port_index(dpp->output_port_id);
 	POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
 
-    printf("Executing output para portid = %d\n", p->outputPortId);
+    //printf("Executing output para portid = %d\n", p->outputPortId);
 
     dpp->output_packet_offset = p->packet_offset;   /* Byte unit. */
     dpp->output_packet_len = dpp->offset + dpp->left_len - dpp->output_packet_offset;   /* Byte unit. */
@@ -549,7 +549,6 @@ static uint32_t output_flood(POFDP_ARG)
             continue;
         if (port_ptr[i].of_enable == POFLR_PORT_DISABLE)
             continue;
-        printf("PORT ID = %d, NAME = %s\n", port_ptr[i].port_id, port_ptr[i].name);
         dpp->ori_port_id = port_ptr[i].port_id;
         ((pof_action_output *)dpp->act->action_data)->outputPortId = port_ptr[i].port_id;
         //p->outputPortId = port_ptr[i].port_id;

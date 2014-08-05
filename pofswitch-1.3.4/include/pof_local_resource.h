@@ -56,8 +56,8 @@
 #define POFLR_STATE_VALID (1)
 #define POFLR_STATE_INVALID (0)
 
-/* Define max cache indexes per entry */
-#define POFLR_CACHE_MAX_INDEXES (100)
+/* Define max number of entries in CS */
+#define POFLR_CACHE_MAX_ENTRIES (50)
 
 typedef struct poflr_flow_entry{
     pof_flow_entry entry;
@@ -236,5 +236,6 @@ extern struct cache_entry* poflr_match_cache_entry(char *name, int size);
 extern void poflr_create_cache_table();
 extern void poflr_destroy_cache_table();
 extern void print_cache_tab();
+extern uint32_t poflr_cache_full_report(int total_entries, int used_entries);
 
 #endif // _POF_LOCALRESOURCE_H_

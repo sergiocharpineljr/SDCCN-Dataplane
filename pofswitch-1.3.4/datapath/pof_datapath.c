@@ -147,7 +147,7 @@ uint32_t pof_datapath_init(){
     POF_MALLOC_ERROR_HANDLE_RETURN_NO_UPWARD(g_pofdp_recv_raw_task_id_ptr);
     for(i=0; i<port_number; i++){
 		ret = pofdp_create_port_listen_task(g_pofdp_recv_raw_task_id_ptr + i, port_ptr + i);
-        printf("port = %d, ret = %d\n", port_ptr[i].port_id, ret);
+        //printf("port = %d, ret = %d\n", port_ptr[i].port_id, ret);
         if(POF_OK != ret){
             POF_DEBUG_CPRINT_ERR();
             free(g_pofdp_recv_raw_task_id_ptr);
@@ -357,16 +357,25 @@ process_incoming_content(unsigned char *msg, size_t size)
     // check if we need to add to cs
     cae = poflr_match_cache_entry(name, strlen(name)+1);
     if (cae == NULL){
-        printf("CAE EH NULL\n");
         return;
     }
-    printf("CAE NAME = %s\n", cae->name);
     POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
+    printf("ADDING CONTENT TO CONTENT STORE! Size = %d\n", hashtb_n(cs_tab));
     hashtb_start(cs_tab, e);
+    // check if hashtb is full
+    if (hashtb_n(cs_tab) >= POFLR_CACHE_MAX_ENTRIES)
+    {
+        // send CACHE_FULL message
+        poflr_cache_full_report(POFLR_CACHE_MAX_ENTRIES, hashtb_n(cs_tab)); 
+
+        printf("CONTENT STORE FULL\n");
+        hashtb_end(e);
+        return;
+    }
+
     hashtb_seek(e, name, strlen(name)+1, 0);
     ce = e->data;
     if (ce == NULL){
-        printf("EH NULLLL\n");
         ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
     }
     if (ce->size != 0){
@@ -377,7 +386,8 @@ process_incoming_content(unsigned char *msg, size_t size)
     memcpy(ce->ccnb, msg, size);
     ce->size = size;
     ce->name = name;
-    printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
+    ce->created = time(NULL);
+    //printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
     hashtb_end(e);
     return;
 }
@@ -469,15 +479,10 @@ static uint32_t pofdp_main_task(void *arg_ptr){
         enum ccn_dtag dtag;
         ssize_t msgstart = 0, length;
         unsigned char *buf;
-        printf("SIZE = %d, BUF = %s\n", dpp->ori_len, dpp->buf);
-        printf("FIXING SIZE AND BUFFER TO APPLICATION ONLY DATA\n");
+        //printf("SIZE = %d, BUF = %s\n", dpp->ori_len, dpp->buf);
         buf = dpp->buf + 42;
         length = dpp->ori_len - 42;
-        printf("SIZE = %d, BUF = %s\n", length, buf);
         dres = ccn_skeleton_decode(d, buf, length);
-        printf("FIRST BYTE IS %x\n", buf[0]);
-        printf("SECOND BYTE IS %x\n", buf[1]);
-        printf("STATE = %d\n", d->state);
         ret = 1;
         while (d->state == 0) {
             ret = process_ccn_message(dpp, buf + msgstart, d->index - msgstart);

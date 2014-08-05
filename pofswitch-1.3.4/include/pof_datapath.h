@@ -27,6 +27,7 @@
 #define _POF_DATAPATH_H_
 
 #include <linux/if_packet.h>
+#include <time.h>
 #include "pof_global.h"
 #include "pof_local_resource.h"
 #include "pof_common.h"
@@ -177,6 +178,7 @@ extern uint32_t pofdp_get_32value(uint32_t *value, uint8_t type, void *u_, const
 struct hashtb *cs_tab;
 struct cs_entry {
     char* name;
+    time_t created;
     int size;                   /**< Size of ContentObject */
     unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
 };

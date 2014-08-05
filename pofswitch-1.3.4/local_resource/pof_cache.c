@@ -49,9 +49,10 @@ uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
     name = cache_ptr->name+1;
     name[strlen(name)] = '\0';
     hashtb_start(cache_tab, e);
-    if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY)
+    if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
         hashtb_end(e);
-        return -1; // FIXME
+        return poflr_modify_cache_entry(cache_ptr);
+    }
     /* Create entry. */
     ce = e->data;
     ce->strict = cache_ptr->strict;
@@ -203,3 +204,20 @@ void print_cache_tab(){
     }
     hashtb_end(e);
 }
+
+uint32_t poflr_cache_full_report(int total_entries, int used_entries){
+    pof_cache_full cache_full;
+
+    cache_full.command = OFPCFAC_CRIT;
+    cache_full.total_entries = total_entries;
+    cache_full.used_entries = used_entries;
+
+    //pof_HtoN_transfer_cache_full(&cache_full);
+
+    if(POF_OK != pofec_reply_msg(POFT_CACHE_FULL, g_upward_xid, sizeof(pof_cache_full), (uint8_t *)&cache_full)){
+        POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_WRITE_MSG_QUEUE_FAILURE, g_recv_xid);
+    }
+
+    return POF_OK;
+}
+

@@ -155,7 +155,8 @@ typedef enum pof_type {
     POFT_COUNTER_REPLY = 33, /* Controller/switch message */
 
     /* Cache messages */
-    POFT_CACHE_MOD = 34
+    POFT_CACHE_MOD = 34,
+    POFT_CACHE_FULL = 35
  }pof_type;
 
 /* Table commands */
@@ -203,6 +204,11 @@ typedef enum pof_cache_mod_command {
     POFCAC_MODIFY = 1, /* Modify all matching flows. */
     POFCAC_DELETE = 2, /* Delete all matching flows. */
 }pof_cache_mod_command;
+
+typedef enum pof_cache_full_command {
+    OFPCFAC_WARN = 0,
+    OFPCFAC_CRIT = 1,
+}pof_cache_full_command;
 
 
 #define INSTRUCTIONS \
@@ -560,6 +566,15 @@ typedef struct pof_cache_entry{
 
     char name[CCNX_MAX_NAME_SIZE];    /*The match field.  */
 }pof_cache_entry;        //sizeof=40+8
+
+typedef struct pof_cache_full {
+    uint8_t command;
+    uint8_t pad[7];
+
+    uint32_t total_entries;
+    uint32_t used_entries;
+}pof_cache_full;
+
 
 
 /* Discribe a particular instruction struct with each type. */
