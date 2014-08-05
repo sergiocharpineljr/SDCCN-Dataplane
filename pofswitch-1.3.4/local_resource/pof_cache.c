@@ -205,10 +205,10 @@ void print_cache_tab(){
     hashtb_end(e);
 }
 
-uint32_t poflr_cache_full_report(int total_entries, int used_entries){
+uint32_t poflr_cache_full_report(pof_cache_full_command command, int total_entries, int used_entries){
     pof_cache_full cache_full;
 
-    cache_full.command = OFPCFAC_CRIT;
+    cache_full.command = command;
     cache_full.total_entries = total_entries;
     cache_full.used_entries = used_entries;
 

@@ -366,11 +366,17 @@ process_incoming_content(unsigned char *msg, size_t size)
     if (hashtb_n(cs_tab) >= POFLR_CACHE_MAX_ENTRIES)
     {
         // send CACHE_FULL message
-        poflr_cache_full_report(POFLR_CACHE_MAX_ENTRIES, hashtb_n(cs_tab)); 
+        poflr_cache_full_report(OFPCFAC_CRIT, POFLR_CACHE_MAX_ENTRIES, hashtb_n(cs_tab)); 
 
         printf("CONTENT STORE FULL\n");
         hashtb_end(e);
         return;
+    }
+    if (hashtb_n(cs_tab) >= POFLR_CACHE_WARN_ENTRIES)
+    {
+        // send CACHE_FULL message
+        poflr_cache_full_report(OFPCFAC_WARN, POFLR_CACHE_WARN_ENTRIES, hashtb_n(cs_tab)); 
+        printf("CONTENT STORE WARN\n");
     }
 
     hashtb_seek(e, name, strlen(name)+1, 0);
