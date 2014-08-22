@@ -94,6 +94,7 @@
 
 /* CCNx stuff */
 #define CCNX_MAX_NAME_SIZE (128)
+#define POFLR_CACHE_MAX_ENTRIES (50)
 
 
 /*Define the openflow command type.*/
@@ -156,7 +157,8 @@ typedef enum pof_type {
 
     /* Cache messages */
     POFT_CACHE_MOD = 34,
-    POFT_CACHE_FULL = 35
+    POFT_CACHE_FULL = 35,
+    POFT_CACHE_INFO = 36
  }pof_type;
 
 /* Table commands */
@@ -209,6 +211,11 @@ typedef enum pof_cache_full_command {
     OFPCFAC_WARN = 0,
     OFPCFAC_CRIT = 1,
 }pof_cache_full_command;
+
+typedef enum pof_cache_info_command {
+    OFPCIAC_REQUEST = 0,
+    OFPCIAC_REPLY = 1,
+}pof_cache_info_command;
 
 
 #define INSTRUCTIONS \
@@ -574,6 +581,17 @@ typedef struct pof_cache_full {
     uint32_t total_entries;
     uint32_t used_entries;
 }pof_cache_full;
+
+typedef struct pof_cache_info {
+    uint8_t command;
+    uint8_t pad[7];
+
+    uint32_t total_entries;
+    uint8_t pad2[4];
+    //char entries[POFLR_CACHE_MAX_ENTRIES][CCNX_MAX_NAME_SIZE];
+    char entries[CCNX_MAX_NAME_SIZE];
+    //char **entries;
+}pof_cache_info;
 
 
 

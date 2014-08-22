@@ -539,6 +539,15 @@ uint32_t pof_NtoH_transfer_cache_entry(void *ptr){
     return POF_OK;
 }
 
+uint32_t pof_HtoN_transfer_cache_info(void *ptr){
+    pof_cache_info *p = (pof_cache_info *)ptr;
+    int i;
+
+    POF_HTONL_FUNC(p->total_entries);
+
+    return POF_OK;
+}
+
 uint32_t pof_NtoH_transfer_group(void *ptr){
     pof_group *p = (pof_group *)ptr;
     int i;
