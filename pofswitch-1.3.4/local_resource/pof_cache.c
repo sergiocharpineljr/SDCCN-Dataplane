@@ -166,12 +166,12 @@ struct cache_entry* poflr_match_cache_entry(char *name, int nsize){
     for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
         ce = e->data;
         // check for strict = 1
-        if (ce->strict == 1 && strcmp(ce->name, name) == 0){
+        if (ce->strict == 1 && strcmp(ce->name, name+6) == 0){
             hashtb_end(e);
             return ce;
         }
         // check for strict = 0
-        if (ce->strict == 0 && strncmp(ce->name, name, strlen(ce->name)) == 0){
+        if (ce->strict == 0 && strncmp(ce->name, name+6, strlen(ce->name)) == 0){
             hashtb_end(e);
             return ce;
         }
@@ -222,33 +222,39 @@ uint32_t poflr_cache_full_report(pof_cache_full_command command, int total_entri
 }
 
 uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
-    struct cache_entry *ce = NULL;
+    struct cs_entry *ce = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int i;
     char *name;
+    struct ccn_charbuf *uri;
+    struct ccn_charbuf *ccnb = NULL;
 
     pof_cache_info cache_info;
 
-    hashtb_start(cache_tab, e);
+    hashtb_start(cs_tab, e);
     
     cache_info.command = OFPCIAC_REPLY;
-    cache_info.total_entries = hashtb_n(cache_tab);
+    cache_info.total_entries = hashtb_n(cs_tab);
 
     int n = 0;
-    for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
+    for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
         ce = e->data;
-        memcpy(cache_info.entries+n, ce->name, strlen(ce->name)+1);
-        printf("ce-name = %s, entries = %s\n", ce->name, cache_info.entries);
-        n += strlen(ce->name)+1;
+
+        printf("CENAME = %s\n", ce->name);
+        uri = ccn_charbuf_create();
+        int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
+        printf("res = %d, TESTE = %s\n", res, ccn_charbuf_as_string(uri));
+        //memcpy(cache_info.entries+n, ce->name, strlen(ce->name)+1);
+        memcpy(cache_info.entries+n, ccn_charbuf_as_string(uri), strlen(ccn_charbuf_as_string(uri))+1);
+        //n += strlen(ce->name)+1;
+        n += strlen(ccn_charbuf_as_string(uri))+1;
         cache_info.entries[n-1] = '\n';
     }
     cache_info.entries[n-1] = '\0';
     hashtb_end(e);
 
     pof_HtoN_transfer_cache_info(&cache_info);
-    printf("%s\n", cache_info.entries);
-    if (cache_info.entries[strlen(cache_info.entries)] == '\0') printf("TA CERTO!");
     if(POF_OK != pofec_reply_msg(POFT_CACHE_INFO, g_upward_xid, sizeof(pof_cache_info), (uint8_t *)&cache_info)){
         POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_WRITE_MSG_QUEUE_FAILURE, g_recv_xid);
     }

@@ -333,11 +333,13 @@ process_incoming_content(unsigned char *msg, size_t size)
     size_t end = pco->offset[CCN_PCO_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
-    memcpy(name, namebuf->buf+1, namebuf->length-1);
-    name[namebuf->length-1] = '\0';
-    POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
-    ccn_charbuf_destroy(&namebuf);
+    //unsigned char *name = (unsigned char*)malloc((namebuf->length+1)*sizeof(char));
+    //memcpy(name, namebuf->buf+1, namebuf->length-1);
+    //name[namebuf->length-1] = '\0';
+    //memcpy(name, namebuf->buf, namebuf->length);
+    //name[namebuf->length] = '\0';
+    //POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    //printf("CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -355,12 +357,18 @@ process_incoming_content(unsigned char *msg, size_t size)
     // XXX - check PIT??
     /* add content to CS */
     // check if we need to add to cs
-    cae = poflr_match_cache_entry(name, strlen(name)+1);
+    struct ccn_charbuf *uri; 
+    uri = ccn_charbuf_create();
+    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
+    unsigned char *name = ccn_charbuf_as_string(uri);
+    printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
+    cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri), name);
     if (cae == NULL){
+        ccn_charbuf_destroy(&namebuf);
         return;
     }
     POF_DEBUG_CPRINT_FL(1,RED,"ADDING CONTENT TO CONTENT STORE!");
-    printf("ADDING CONTENT TO CONTENT STORE! Size = %d\n", hashtb_n(cs_tab));
+    printf("ADDING CONTENT TO CONTENT STORE! Size = %d, Name = %s\n", hashtb_n(cs_tab), name);
     hashtb_start(cs_tab, e);
     // check if hashtb is full
     if (hashtb_n(cs_tab) >= POFLR_CACHE_MAX_ENTRIES)
@@ -369,6 +377,7 @@ process_incoming_content(unsigned char *msg, size_t size)
         poflr_cache_full_report(OFPCFAC_CRIT, POFLR_CACHE_MAX_ENTRIES, hashtb_n(cs_tab)); 
 
         printf("CONTENT STORE FULL\n");
+        ccn_charbuf_destroy(&namebuf);
         hashtb_end(e);
         return;
     }
@@ -379,7 +388,7 @@ process_incoming_content(unsigned char *msg, size_t size)
         printf("CONTENT STORE WARN\n");
     }
 
-    hashtb_seek(e, name, strlen(name)+1, 0);
+    hashtb_seek(e, namebuf->buf, namebuf->length, 0);
     ce = e->data;
     if (ce == NULL){
         ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
@@ -387,13 +396,16 @@ process_incoming_content(unsigned char *msg, size_t size)
     if (ce->size != 0){
         POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
         free(ce->ccnb);
+    }else{
+        ce->name = (unsigned char*)malloc((namebuf->length+1)*sizeof(char));
+        memcpy(ce->name, namebuf->buf, namebuf->length);
+        ce->name_size = namebuf->length;
     }
     ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
     memcpy(ce->ccnb, msg, size);
     ce->size = size;
-    ce->name = name;
     ce->created = time(NULL);
-    //printf("SIZE = %d, pDATA = %s\n", ce->size, ce->ccnb);
+    ccn_charbuf_destroy(&namebuf);
     hashtb_end(e);
     return;
 }
