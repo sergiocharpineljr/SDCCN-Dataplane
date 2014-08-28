@@ -227,6 +227,7 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
     struct hashtb_enumerator *e = &ee;
     int i;
     char *name;
+    char buff[20];
     struct ccn_charbuf *uri;
     struct ccn_charbuf *ccnb = NULL;
 
@@ -241,14 +242,23 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
     for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
         ce = e->data;
 
-        printf("CENAME = %s\n", ce->name);
         uri = ccn_charbuf_create();
         int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
         printf("res = %d, TESTE = %s\n", res, ccn_charbuf_as_string(uri));
-        //memcpy(cache_info.entries+n, ce->name, strlen(ce->name)+1);
         memcpy(cache_info.entries+n, ccn_charbuf_as_string(uri), strlen(ccn_charbuf_as_string(uri))+1);
-        //n += strlen(ce->name)+1;
         n += strlen(ccn_charbuf_as_string(uri))+1;
+        cache_info.entries[n-1] = '\t';
+
+        //add created datetime
+        strftime(buff, 20, "%d-%m-%Y %H:%M:%S", localtime(&ce->created));
+        memcpy(cache_info.entries+n, buff, strlen(buff)+1);
+        n += strlen(buff)+1;
+        cache_info.entries[n-1] = '\t';
+        
+        //add updated datetime
+        strftime(buff, 20, "%d-%m-%Y %H:%M:%S", localtime(&ce->updated));
+        memcpy(cache_info.entries+n, buff, strlen(buff)+1);
+        n += strlen(buff)+1;
         cache_info.entries[n-1] = '\n';
     }
     cache_info.entries[n-1] = '\0';

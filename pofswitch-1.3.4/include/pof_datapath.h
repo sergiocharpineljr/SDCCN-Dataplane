@@ -180,6 +180,7 @@ struct cs_entry {
     char* name;
     int name_size;
     time_t created;
+    time_t updated;
     int size;                   /**< Size of ContentObject */
     unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
 };

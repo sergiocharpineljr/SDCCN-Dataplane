@@ -269,6 +269,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         if (ce->size == 0)
             return 1;
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
+        ce->updated = time(NULL);
         // XXX - inverte endereços MAC, IP, UDP
         int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
         unsigned char* data = (unsigned char*)malloc(ce->size*sizeof(char)+sheaders);
@@ -405,6 +406,7 @@ process_incoming_content(unsigned char *msg, size_t size)
     memcpy(ce->ccnb, msg, size);
     ce->size = size;
     ce->created = time(NULL);
+    ce->updated = time(NULL);
     ccn_charbuf_destroy(&namebuf);
     hashtb_end(e);
     return;
