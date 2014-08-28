@@ -154,7 +154,8 @@
 #define POF_WAIT_FOREVER (0)
 
 /* Define message size. */
-#define POF_MESSAGE_SIZE (2560)
+//#define POF_MESSAGE_SIZE (2560)
+#define POF_MESSAGE_SIZE (256000)
 
 /* Define message type. */
 #define POF_MSGTYPE_ANY (0)

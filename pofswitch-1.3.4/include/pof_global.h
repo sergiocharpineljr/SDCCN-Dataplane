@@ -48,7 +48,8 @@
 #define POF_ERROR_STRING_MAX_LENGTH	(256)
 
 /*Define the max length of packetin.*/
-#define POF_PACKET_IN_MAX_LENGTH (2048)
+//#define POF_PACKET_IN_MAX_LENGTH (2048)
+#define POF_PACKET_IN_MAX_LENGTH (204800)
 
 /*Define the MTU length, including the ether header.*/
 #define POF_MTU_LENGTH (1514)
@@ -589,8 +590,7 @@ typedef struct pof_cache_info {
     uint32_t total_entries;
     uint8_t pad2[4];
     //char entries[POFLR_CACHE_MAX_ENTRIES][CCNX_MAX_NAME_SIZE];
-    char entries[CCNX_MAX_NAME_SIZE];
-    //char **entries;
+    char entries[CCNX_MAX_NAME_SIZE*POFLR_CACHE_MAX_ENTRIES];
 }pof_cache_info;
 
 

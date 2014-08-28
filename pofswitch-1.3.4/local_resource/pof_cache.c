@@ -252,6 +252,7 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
         cache_info.entries[n-1] = '\n';
     }
     cache_info.entries[n-1] = '\0';
+    printf("ENTRIES = %s\n", cache_info.entries);
     hashtb_end(e);
 
     pof_HtoN_transfer_cache_info(&cache_info);
