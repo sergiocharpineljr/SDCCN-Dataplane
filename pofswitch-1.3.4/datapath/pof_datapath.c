@@ -237,11 +237,11 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
-    memcpy(name, namebuf->buf+1, namebuf->length-1);
-    name[namebuf->length-1] = '\0';
-    POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", name, strlen(name));
-    ccn_charbuf_destroy(&namebuf);
+    //unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
+    //memcpy(name, namebuf->buf+1, namebuf->length-1);
+    //name[namebuf->length-1] = '\0';
+    //POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    //ccn_charbuf_destroy(&namebuf);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -258,7 +258,8 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     }*/
     // XXX - check PIT??
     // check CS
-    if (ce = hashtb_lookup(cs_tab, name, strlen(name)+1)){
+    if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
+        ccn_charbuf_destroy(&namebuf);
     //struct hashtb_enumerator ee;
     //struct hashtb_enumerator *e = &ee;
     //hashtb_start(cs_tab, e);
