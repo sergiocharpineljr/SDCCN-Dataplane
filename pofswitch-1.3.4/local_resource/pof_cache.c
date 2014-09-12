@@ -272,3 +272,33 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
 
     return POF_OK;
 }
+
+uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr){
+    //FIXME: IMPLEMENTAR LISTA ORDENADA PARA ISTO
+    struct cs_entry *ce = NULL;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    char *name = cache_ptr->name;
+    int i;
+    struct ccn_charbuf *uri;
+
+    printf("CHAMADO DELETE CS ENTRY - %s\n", name);
+    hashtb_start(cs_tab, e);
+    for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
+        ce = e->data;
+        uri = ccn_charbuf_create();
+        int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
+        printf("CSENTRY %s\n", ccn_charbuf_as_string(uri));
+        if (strcmp(ccn_charbuf_as_string(uri), name) == 0){
+            printf("DELETADO CSENTRY\n");
+            free(ce->name);
+            hashtb_delete(e);
+            hashtb_end(e);
+            printf("RETORNADNO OK\n");
+            return POF_OK;
+        }
+    }
+    printf("CHEGOU AQUI?\n");
+    hashtb_end(e);
+    return -1;
+}

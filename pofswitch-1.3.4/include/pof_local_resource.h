@@ -58,7 +58,8 @@
 
 /* Define max number of entries in CS */
 #define POFLR_CACHE_MAX_ENTRIES (50)
-#define POFLR_CACHE_WARN_ENTRIES (40)
+//#define POFLR_CACHE_WARN_ENTRIES (40)
+#define POFLR_CACHE_WARN_ENTRIES (4)
 
 typedef struct poflr_flow_entry{
     pof_flow_entry entry;
@@ -238,5 +239,6 @@ extern void poflr_create_cache_table();
 extern void poflr_destroy_cache_table();
 extern void print_cache_tab();
 extern uint32_t poflr_cache_full_report(pof_cache_full_command command, int total_entries, int used_entries);
+extern uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr);
 
 #endif // _POF_LOCALRESOURCE_H_

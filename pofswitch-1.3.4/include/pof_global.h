@@ -96,7 +96,7 @@
 /* CCNx stuff */
 #define CCNX_MAX_NAME_SIZE (128)
 #define POFLR_CACHE_MAX_ENTRIES (50)
-
+//#define POFLR_CACHE_MAX_ENTRIES (10)
 
 /*Define the openflow command type.*/
 typedef enum pof_type {
@@ -159,7 +159,8 @@ typedef enum pof_type {
     /* Cache messages */
     POFT_CACHE_MOD = 34,
     POFT_CACHE_FULL = 35,
-    POFT_CACHE_INFO = 36
+    POFT_CACHE_INFO = 36,
+    POFT_CS_MOD = 37
  }pof_type;
 
 /* Table commands */
@@ -217,6 +218,13 @@ typedef enum pof_cache_info_command {
     OFPCIAC_REQUEST = 0,
     OFPCIAC_REPLY = 1,
 }pof_cache_info_command;
+
+typedef enum pof_cs_mod_command {
+    POFCSC_ADD = 0, /* New flow with wildcards. */
+    POFCSC_MODIFY = 1, /* Modify all matching flows. */
+    POFCSC_DELETE = 2, /* Delete all matching flows. */
+}pof_cs_mod_command;
+
 
 
 #define INSTRUCTIONS \

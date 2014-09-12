@@ -249,6 +249,32 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
             }
             break;
 
+        case POFT_CS_MOD:
+            printf("RECEBI POFT_CS_MOD\n");
+            cache_ptr = (pof_cache_entry*)(msg_ptr + sizeof(pof_header));
+            pof_NtoH_transfer_cache_entry(cache_ptr);
+
+            switch (cache_ptr->command){
+                case POFCSC_ADD:
+                    //ret = poflr_add_cache_entry(cache_ptr);
+                    //POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    break;
+                case POFCSC_MODIFY:
+                    //ret = poflr_add_cache_entry(cache_ptr);
+                    //POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    break;
+                case POFCSC_DELETE:
+                    ret = poflr_delete_cs_entry(cache_ptr);
+                    POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    break;
+                default:
+                    printf("COMMANDD = %d\n", cache_ptr->command);
+                    POF_ERROR_HANDLE_RETURN_UPWARD(POFET_CACHE_MOD_FAILED, POFTMFC_BAD_COMMAND, g_recv_xid);
+                    break;
+            }
+            break;
+
+
         case POFT_CACHE_INFO:
             cache_info_ptr = (pof_cache_info*)(msg_ptr + sizeof(pof_header));
             //pof_HtoN_transfer_cache_info(cache_info_ptr);
