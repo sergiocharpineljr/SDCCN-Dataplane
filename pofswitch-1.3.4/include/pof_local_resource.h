@@ -58,8 +58,7 @@
 
 /* Define max number of entries in CS */
 #define POFLR_CACHE_MAX_ENTRIES (50)
-//#define POFLR_CACHE_WARN_ENTRIES (40)
-#define POFLR_CACHE_WARN_ENTRIES (4)
+#define POFLR_CACHE_WARN_ENTRIES (45)
 
 typedef struct poflr_flow_entry{
     pof_flow_entry entry;

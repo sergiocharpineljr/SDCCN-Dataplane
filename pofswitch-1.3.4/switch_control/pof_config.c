@@ -52,6 +52,7 @@ uint32_t pofc_cmd_auto_clear = TRUE;
 
 //  CONFIG_CMD(OPT,OPTSTR,LONG,FUNC,HELP)
 #define CONFIG_CMDS \
+    CONFIG_CMD('d',"d:","dpid",dpid,"DPID of the Switch.")                      \
     CONFIG_CMD('i',"i:","ip-addr",ip_addr,"IP address of the Controller.")                      \
     CONFIG_CMD('p',"p:","port",port,"Connection port number. Default is 6633.")              \
     CONFIG_CMD('f',"f:","file",file,"Set config file.")                                      \
@@ -63,6 +64,12 @@ uint32_t pofc_cmd_auto_clear = TRUE;
     CONFIG_CMD('v',"v","version",version,"Print the version number of POFSwitch.")
 
 static uint32_t
+start_cmd_dpid(char *optarg)
+{
+    pofsc_set_dpid(atoi(optarg));
+}
+
+    static uint32_t
 start_cmd_ip_addr(char *optarg)
 {
     pofsc_set_controller_ip(optarg);

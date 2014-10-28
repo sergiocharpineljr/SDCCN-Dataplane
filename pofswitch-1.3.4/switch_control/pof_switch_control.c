@@ -51,6 +51,8 @@ char pofsc_controller_ip_addr[POF_IP_ADDRESS_STRING_LEN] = "192.168.1.1";
 /* Controller port. */
 uint16_t pofsc_controller_port = POF_CONTROLLER_PORT_NUM;
 
+uint32_t pofsc_dpid = 0;
+
 /* The max retry time of cnnection. */
 uint32_t pofsc_conn_max_retry = POF_CONNECTION_MAX_RETRY_TIME;
 
@@ -802,8 +804,14 @@ static uint32_t pofsc_connect(int socket_fd, char *server_ip, uint16_t port){
 
     /* Get the device id using the low 32bit of hardware address of local
      * port connecting to the Controller. */
-    memcpy(&g_poflr_dev_id, hwaddr+2, POF_ETH_ALEN-2);
-    POF_NTOHL_FUNC(g_poflr_dev_id);
+    if (pofsc_dpid > 0) {
+        POF_DEBUG_CPRINT_FL(1,GREEN,"USANDO DPID = %d", pofsc_dpid);
+        memcpy(&g_poflr_dev_id, &pofsc_dpid, sizeof(pofsc_dpid));
+    } else {
+        POF_DEBUG_CPRINT_FL(1,GREEN,"USANDO ENDERECO DE REDE = %d", hwaddr+2);
+        memcpy(&g_poflr_dev_id, hwaddr+2, POF_ETH_ALEN-2);
+        POF_NTOHL_FUNC(g_poflr_dev_id);
+    }
 
     POF_DEBUG_CPRINT_FL(1,GREEN,"Local physical port ip is %s", localIP);
 
@@ -999,6 +1007,14 @@ uint32_t pofsc_set_controller_port(uint16_t port){
 	pofsc_controller_port = port;
     sprintf(g_states.conn_port.cont, "%u", port);
 	return POF_OK;
+}
+
+uint32_t pofsc_set_dpid(uint32_t dpid){
+	pofsc_dpid = dpid;
+	return POF_OK;
+}
+uint32_t pofsc_get_dpid(){
+	return pofsc_dpid;
 }
 
 /* Check whether the euid is the root id. */

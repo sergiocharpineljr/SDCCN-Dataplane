@@ -121,6 +121,7 @@ uint32_t pofbf_task_delete(task_t *task_id_ptr){
  ***********************************************************************/
 uint32_t pofbf_queue_create(uint32_t *queue_id_ptr){
     uint32_t queue_id = POF_INVALID_QUEUEID;
+    uint32_t pofsc_dpid;
 
     if(queue_id_ptr == NULL){
         POF_ERROR_HANDLE_RETURN_NO_UPWARD(POFET_SOFTWARE_FAILED, POF_QUEUE_CREATE_FAIL);
@@ -128,7 +129,7 @@ uint32_t pofbf_queue_create(uint32_t *queue_id_ptr){
 
     /* Build the pofbf_key to create the queue. */
     if(pofbf_key == 0){
-        pofbf_key = ftok(".", 1);
+        pofbf_key = ftok(".", pofsc_get_dpid() * 100);
     }
 
     /* Create the queue using pofbf_key. */

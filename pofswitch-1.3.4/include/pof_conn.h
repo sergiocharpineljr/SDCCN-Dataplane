@@ -52,6 +52,7 @@
 
 extern char pofsc_controller_ip_addr[POF_IP_ADDRESS_STRING_LEN];
 extern uint16_t pofsc_controller_port;
+extern uint32_t pofsc_dpid;
 
 /* Openflow device connection description. */
 typedef struct pofsc_dev_conn_desc{
@@ -96,6 +97,8 @@ extern uint32_t pof_auto_clear();
 extern uint32_t pofsc_set_controller_ip(char *ip_str);
 extern uint32_t pofsc_set_controller_port(uint16_t port);
 extern void pof_states_print();
+extern uint32_t pofsc_set_dpid(uint32_t dpid);
+extern uint32_t pofsc_get_dpid();
 
 /* parse and encap. */
 extern uint32_t pof_parse_msg_from_controller(char* msg_ptr);
