@@ -489,6 +489,7 @@ static uint32_t execute_OUTPUT(POFDP_ARG)
     dpp->output_metadata_len = POF_BITNUM_TO_BYTENUM_CEIL(p->metadata_len); /* Byte unit. */
     dpp->output_metadata_offset = p->metadata_offset;   /* Bit unit. */
     dpp->output_whole_len = dpp->output_packet_len + dpp->output_metadata_len;  /* Byte unit. */
+    printf("output_whole_len = %d\n", dpp->output_whole_len);
 
     ret = pofdp_send_raw(dpp);
     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);

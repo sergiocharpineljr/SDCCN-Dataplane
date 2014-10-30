@@ -60,6 +60,8 @@
 #define POFLR_CACHE_MAX_ENTRIES (50)
 #define POFLR_CACHE_WARN_ENTRIES (45)
 
+#define POFLR_MAX_PORT_IDS (100)
+
 typedef struct poflr_flow_entry{
     pof_flow_entry entry;
     uint32_t state;   // POFLR_STATE_VALID or POFLR_STATE_INVALID
@@ -230,14 +232,29 @@ struct cache_entry {
     char *name;
 };
 
+/* PIT */
+struct hashtb *pit_tab;
+struct pit_entry {
+    uint32_t  index;
+    uint16_t timeout;
+    uint16_t n;
+    uint8_t port_ids[POFLR_MAX_PORT_IDS];
+    char *name;
+};
+
 extern uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr);
 extern uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr);
 extern uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr);
-extern struct cache_entry* poflr_match_cache_entry(char *name, int size);
+extern struct cache_entry* poflr_match_cache_entry(char *name);
 extern void poflr_create_cache_table();
 extern void poflr_destroy_cache_table();
 extern void print_cache_tab();
 extern uint32_t poflr_cache_full_report(pof_cache_full_command command, int total_entries, int used_entries);
 extern uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr);
+extern uint32_t poflr_add_pit_entry(char *name, uint8_t port_id);
+extern uint32_t poflr_delete_pit_entry(char *name);
+extern void poflr_create_pit_table();
+extern void poflr_destroy_cache_table();
+extern void print_pit_tab();
 
 #endif // _POF_LOCALRESOURCE_H_

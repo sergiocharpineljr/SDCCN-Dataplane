@@ -908,9 +908,11 @@ class POFSwitch( Switch ):
         pout = open('/tmp/' + self.name + '-pof.log', 'w', 1) #FIXME empty
         #self.cmd( 'pofswitch ' + self.dpopts +
         #          ' 1> ' + ofdlog + ' 2> ' + ofdlog + ' &' )
+        print ['pofswitch', '-p', str(controllers[0].port),
+                                '-i', controllers[0].ip, '-d', self.dpid]
         self.pof_proc = Popen(['pofswitch', '-p', str(controllers[0].port),
-                '-i', controllers[0].ip], bufsize=1, close_fds=True, stdin=PIPE,
-                stdout=pout, stderr=pout)
+                '-i', controllers[0].ip, '-d', self.dpid], bufsize=1, close_fds=True,
+                stdin=PIPE, stdout=pout, stderr=pout)
 
     def stop( self ):
         "Stop OpenFlow reference user datapath."

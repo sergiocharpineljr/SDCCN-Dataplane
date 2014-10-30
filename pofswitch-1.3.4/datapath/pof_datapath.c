@@ -121,6 +121,7 @@ uint32_t pof_datapath_init(){
     /* Create CCN Content Store */
     cs_tab = hashtb_create(sizeof(struct cs_entry), NULL); // XXX - CHECK &param
     poflr_create_cache_table();
+    poflr_create_pit_table();
 
     /* Create message queues to store send or receive message. */
     ret = pofbf_queue_create(&g_pofdp_recv_q_id);
@@ -222,6 +223,7 @@ unsigned short csum(unsigned short *buf, int nwords)
 static int
 process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
+    printf("ANALISANDO INTEREST\n");
     struct ccn_parsed_interest parsed_interest = {0};
     struct ccn_parsed_interest *pi = &parsed_interest;
     struct cs_entry *ce = NULL;
@@ -237,11 +239,10 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    //unsigned char *name = (unsigned char*)malloc(namebuf->length*sizeof(char));
-    //memcpy(name, namebuf->buf+1, namebuf->length-1);
-    //name[namebuf->length-1] = '\0';
-    //POF_DEBUG_CPRINT_FL(1,RED,"INTEREST WAS PARSED! NAME = %s, length= %d", name, strlen(name));
-    //ccn_charbuf_destroy(&namebuf);
+    struct ccn_charbuf *uri; 
+    uri = ccn_charbuf_create();
+    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
+    unsigned char *name = ccn_charbuf_as_string(uri);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -256,17 +257,16 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         POF_DEBUG_CPRINT_FL(1,RED,"interest dup nonce");
         return;
     }*/
-    // XXX - check PIT??
+    // ADD TO PIT
+    printf("ADICIONANDO NOME %s na PIT\n", name);
+    res = poflr_add_pit_entry(name, dpp->ori_port_id);
+    if (res < 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
+    }
+    
     // check CS
     if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
         ccn_charbuf_destroy(&namebuf);
-    //struct hashtb_enumerator ee;
-    //struct hashtb_enumerator *e = &ee;
-    //hashtb_start(cs_tab, e);
-    //if (hashtb_seek(e, name, strlen(name)+1, 0) == HT_OLD_ENTRY){
-        //ce = e->data;
-        //if (ce == NULL)
-        //    printf("CE EH NULLL\n");
         if (ce->size == 0)
             return 1;
         POF_DEBUG_CPRINT_FL(1,RED,"CONTENT STORE MATCH FOUND!");
@@ -315,11 +315,13 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
  * Process CCN Content
  */ 
 static void
-process_incoming_content(unsigned char *msg, size_t size)
+process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
+    printf("ANALISANDO CONTEUDO\n");
     struct ccn_parsed_ContentObject obj = {0};
     struct ccn_parsed_ContentObject *pco = &obj;
     struct cs_entry *ce = NULL;
+    struct pit_entry *pe = NULL;
     struct cache_entry *cae = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
@@ -335,13 +337,12 @@ process_incoming_content(unsigned char *msg, size_t size)
     size_t end = pco->offset[CCN_PCO_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    //unsigned char *name = (unsigned char*)malloc((namebuf->length+1)*sizeof(char));
-    //memcpy(name, namebuf->buf+1, namebuf->length-1);
-    //name[namebuf->length-1] = '\0';
-    //memcpy(name, namebuf->buf, namebuf->length);
-    //name[namebuf->length] = '\0';
-    //POF_DEBUG_CPRINT_FL(1,RED,"CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
-    //printf("CONTENT WAS PARSED! NAME = %s, length= %d", name, strlen(name));
+    struct ccn_charbuf *uri; 
+    uri = ccn_charbuf_create();
+    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
+    unsigned char *name = ccn_charbuf_as_string(uri);
+    printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
+
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -357,14 +358,43 @@ process_incoming_content(unsigned char *msg, size_t size)
         return;
     }*/
     // XXX - check PIT??
+    printf("OLHANDO PIT\n");
+    print_pit_tab();
+    int i;
+        int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
+        struct ether_header *eh = (struct ether_header *)dpp->buf;
+        struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
+        struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
+    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
+        printf("ACHOU NA PIT\n");
+        for (i = 0; i < pe->n; i++){
+        int size = strlen(dpp->buf+sheaders);
+        printf("SIZE DO CONTEUDO = %d\n", size);
+        iph->tot_len = htons(sheaders - sizeof(struct ether_header) + size);
+        printf("IPH->TOT_LEN = %d\n", iph->tot_len);
+        udph->check = 0;
+        printf("UDPH->LEN = %d\n", udph->len);
+        udph->len = htons(sizeof(struct udphdr)+size);
+        //memcpy(data+sheaders, ce->ccnb, ce->size);
+        iph->check = 0;
+        iph->check = csum((unsigned short *)(dpp->buf+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
+        dpp->output_packet_len = sheaders + size;
+        dpp->output_whole_len = sheaders + size;
+
+            printf("ENVIANDO PARA PORTID = %d\n", pe->port_ids[i]);
+            printf("PACKET_LEN = %d\n", dpp->output_packet_len);
+            printf("WHOLE_LEN = %d\n", dpp->output_whole_len);
+            printf("IP SRC = %s\n", inet_ntoa(iph->saddr));
+            dpp->output_port_id = pe->port_ids[i];
+            dpp->output_port_id = pe->port_ids[i];
+            //pofdp_send_raw(dpp);
+            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[i]);
+        }
+    } 
+                                                 
     /* add content to CS */
     // check if we need to add to cs
-    struct ccn_charbuf *uri; 
-    uri = ccn_charbuf_create();
-    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
-    unsigned char *name = ccn_charbuf_as_string(uri);
-    printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
-    cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri), name);
+    cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri));
     if (cae == NULL){
         ccn_charbuf_destroy(&namebuf);
         return;
@@ -439,7 +469,7 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
-            process_incoming_content(msg, size);
+            process_incoming_content(dpp, msg, size);
             return 1;
         default:
             break;
@@ -516,8 +546,10 @@ static uint32_t pofdp_main_task(void *arg_ptr){
                                 buf + msgstart,
                                 length - msgstart);
         }
-        if (ret == 0)
+        if (ret == 0){
+		    free_packet_data(dpp);
             continue;
+        }
        
 		/* Check whether the first flow table exist. */
 		if(POF_OK != poflr_check_flow_table_exist(POFDP_FIRST_TABLE_ID)){

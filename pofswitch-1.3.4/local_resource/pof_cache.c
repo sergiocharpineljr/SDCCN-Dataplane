@@ -139,7 +139,7 @@ uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
                 ce1 = e1->data;
                 if (strncmp(ce1->name, name, strlen(name)) == 0){
                     // check if there is another match
-                    if (!poflr_match_cache_entry(ce1->name, strlen(ce1->name)+1)){
+                    if (!poflr_match_cache_entry(ce1->name)){
                         free(ce1->ccnb);
                         free(ce1->name);
                         hashtb_delete(e1);
@@ -156,7 +156,7 @@ uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
 }
 
 /* Match content */
-struct cache_entry* poflr_match_cache_entry(char *name, int nsize){
+struct cache_entry* poflr_match_cache_entry(char *name){
     struct cache_entry *ce;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
