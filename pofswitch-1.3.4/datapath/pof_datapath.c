@@ -258,7 +258,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         return;
     }*/
     // ADD TO PIT
-    printf("ADICIONANDO NOME %s na PIT\n", name);
+    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
     res = poflr_add_pit_entry(name, dpp->ori_port_id);
     if (res < 0) {
         POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
@@ -365,28 +365,61 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         struct ether_header *eh = (struct ether_header *)dpp->buf;
         struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
         struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
+        int size_content = strlen(dpp->buf+sheaders);
+        unsigned char* data = (unsigned char*)malloc(size_content*sizeof(char)+sheaders);
+        struct ether_header *eh_new = (struct ether_header *)data;
+        struct iphdr *iph_new = (struct iphdr *)(data + sizeof(struct ether_header));
+        struct udphdr *udph_new = (struct udphdr *)(data + sizeof(struct ether_header) + sizeof(struct iphdr));
     if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
         printf("ACHOU NA PIT\n");
         for (i = 0; i < pe->n; i++){
-        int size = strlen(dpp->buf+sheaders);
-        printf("SIZE DO CONTEUDO = %d\n", size);
-        iph->tot_len = htons(sheaders - sizeof(struct ether_header) + size);
-        printf("IPH->TOT_LEN = %d\n", iph->tot_len);
-        udph->check = 0;
-        printf("UDPH->LEN = %d\n", udph->len);
-        udph->len = htons(sizeof(struct udphdr)+size);
-        //memcpy(data+sheaders, ce->ccnb, ce->size);
-        iph->check = 0;
-        iph->check = csum((unsigned short *)(dpp->buf+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
-        dpp->output_packet_len = sheaders + size;
-        dpp->output_whole_len = sheaders + size;
+        memcpy(eh_new, eh, sizeof(struct ether_header));
+        memcpy(iph_new, iph, sizeof(struct iphdr));
+        memcpy(udph_new, udph, sizeof(struct udphdr));
+        int j;
+        for (j = 0; j < 6; j++){
+            eh_new->ether_shost[j] = eh->ether_shost[j];
+            eh_new->ether_dhost[j] = eh->ether_dhost[j];
+        }
+        iph_new->saddr = iph->saddr;
+        iph_new->daddr = iph->daddr;
+        iph_new->tot_len = htons(sheaders - sizeof(struct ether_header) + size_content);
+        udph_new->source = udph->source;
+        udph_new->dest = udph->dest;
+        udph_new->check = 0;
+        udph_new->len = htons(sizeof(struct udphdr)+size_content);
+        memcpy(data+sheaders, dpp->buf+sheaders, size_content);
+        iph_new->check = 0;
+        iph_new->check = csum((unsigned short *)(data+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
+        //free(dpp->buf);
+        //dpp->buf = data;
+        dpp->output_port_id = pe->port_ids[i];
+        //dpp->output_port_id = POFP_FLOOD;
+        //dpp->output_packet_len = sheaders +size_content;
+        //dpp->output_whole_len = sheaders + size_content;
 
-            printf("ENVIANDO PARA PORTID = %d\n", pe->port_ids[i]);
-            printf("PACKET_LEN = %d\n", dpp->output_packet_len);
-            printf("WHOLE_LEN = %d\n", dpp->output_whole_len);
-            printf("IP SRC = %s\n", inet_ntoa(iph->saddr));
-            dpp->output_port_id = pe->port_ids[i];
-            dpp->output_port_id = pe->port_ids[i];
+        printf("IP SRC = %s\n", inet_ntoa(iph_new->saddr));
+        printf("IP DST = %s\n", inet_ntoa(iph_new->daddr));
+printf("%02x:%02x:%02x:%02x:%02x:%02x",
+    (unsigned)eh_new->ether_dhost[0],
+    (unsigned)eh_new->ether_dhost[1],
+    (unsigned)eh_new->ether_dhost[2],
+    (unsigned)eh_new->ether_dhost[3],
+    (unsigned)eh_new->ether_dhost[4],
+    (unsigned)eh_new->ether_dhost[5]);
+printf("%02x:%02x:%02x:%02x:%02x:%02x",
+    (unsigned)eh_new->ether_shost[0],
+    (unsigned)eh_new->ether_shost[1],
+    (unsigned)eh_new->ether_shost[2],
+    (unsigned)eh_new->ether_shost[3],
+    (unsigned)eh_new->ether_shost[4],
+    (unsigned)eh_new->ether_shost[5]);
+        printf("SIZE DO CONTEUDO = %d\n", size_content);
+        printf("ENVIANDO PARA PORTID = %d\n", pe->port_ids[i]);
+        printf("PORTA ORIGEM = %d\n", dpp->ori_port_id);
+        printf("PACKET_LEN = %d\n", dpp->output_packet_len);
+        printf("WHOLE_LEN = %d\n", dpp->output_whole_len);
+        POF_DEBUG_CPRINT_FL_0X(1,GREEN,dpp->buf,dpp->left_len,"MANDEI ENVIAR O PACOTE: ");
             //pofdp_send_raw(dpp);
             printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[i]);
         }
@@ -469,7 +502,7 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
-            process_incoming_content(dpp, msg, size);
+            //process_incoming_content(dpp, msg, size);
             return 1;
         default:
             break;
@@ -746,6 +779,7 @@ static uint32_t pofdp_send_raw_task(void *arg){
         memset(&sll, 0, sizeof sll);
         sll.sll_family = AF_PACKET;
         sll.sll_ifindex = dpp->output_port_id;
+        printf("PORTID = %d\n", dpp->output_port_id);
         sll.sll_protocol = POF_HTONS(ETH_P_ALL);
 
         if(sendto(sock, dpp->buf_out, dpp->output_whole_len, 0, (struct sockaddr *)&sll, sizeof(sll)) == -1){
