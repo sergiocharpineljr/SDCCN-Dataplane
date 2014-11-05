@@ -57,7 +57,7 @@ uint32_t pofc_cmd_auto_clear = TRUE;
     CONFIG_CMD('p',"p:","port",port,"Connection port number. Default is 6633.")              \
     CONFIG_CMD('f',"f:","file",file,"Set config file.")                                      \
     CONFIG_CMD('m',"m","man-clear",man_clear,"Don't auto clear the resource when disconnect.")    \
-    CONFIG_CMD('l',"l","log-file",log_file,"Create log file: /usr/local/var/log/pofswitch.log.") \
+    CONFIG_CMD('l',"l","log-file",log_file,"Create log file.") \
     CONFIG_CMD('s',"s","state",state,"Print software state information.")                     \
     CONFIG_CMD('t',"t","test",test,"Test.")                     \
     CONFIG_CMD('h',"h","help",help,"Print help message.")                                    \
@@ -66,7 +66,11 @@ uint32_t pofc_cmd_auto_clear = TRUE;
 static uint32_t
 start_cmd_dpid(char *optarg)
 {
-    pofsc_set_dpid(atoi(optarg));
+    int id = atoi(optarg);
+    char buf[100];
+    sprintf(buf, "/usr/local/var/log/pofswitch-s%d.log", id);
+    pofsc_set_dpid(id);
+    pof_open_log_file(buf);
 }
 
     static uint32_t
@@ -100,12 +104,13 @@ start_cmd_man_clear(char *optarg)
 static uint32_t
 start_cmd_log_file(char *optarg)
 {
+    printf("OPTARG = %s\n", optarg);
     if(POF_OK != pofsc_check_root()){
         exit(0);
     }
     pof_open_log_file(NULL);
 }
-
+    
 static uint32_t
 start_cmd_state(char *optarg)
 {

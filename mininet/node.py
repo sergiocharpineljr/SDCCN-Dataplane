@@ -905,14 +905,15 @@ class POFSwitch( Switch ):
         # start pofswitch
         self.cmd( 'ifconfig lo up' )
         intfs = [ str( i ) for i in self.intfList() if not i.IP() ]
-        pout = open('/tmp/' + self.name + '-pof.log', 'w', 1) #FIXME empty
+        pout = open('/tmp/' + self.name + '-pof.log', 'w', 0)
+        perr = open('/tmp/' + self.name + '-pof-err.log', 'w', 0) 
         #self.cmd( 'pofswitch ' + self.dpopts +
         #          ' 1> ' + ofdlog + ' 2> ' + ofdlog + ' &' )
         print ['pofswitch', '-p', str(controllers[0].port),
                                 '-i', controllers[0].ip, '-d', self.dpid]
         self.pof_proc = Popen(['pofswitch', '-p', str(controllers[0].port),
                 '-i', controllers[0].ip, '-d', self.dpid], bufsize=1, close_fds=True,
-                stdin=PIPE, stdout=pout, stderr=pout)
+                stdin=PIPE, stdout=pout, stderr=perr)
 
     def stop( self ):
         "Stop OpenFlow reference user datapath."

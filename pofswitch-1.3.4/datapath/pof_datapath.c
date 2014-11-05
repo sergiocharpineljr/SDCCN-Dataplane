@@ -223,7 +223,6 @@ unsigned short csum(unsigned short *buf, int nwords)
 static int
 process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
-    printf("ANALISANDO INTEREST\n");
     struct ccn_parsed_interest parsed_interest = {0};
     struct ccn_parsed_interest *pi = &parsed_interest;
     struct cs_entry *ce = NULL;
@@ -239,10 +238,10 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    struct ccn_charbuf *uri; 
-    uri = ccn_charbuf_create();
-    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
-    unsigned char *name = ccn_charbuf_as_string(uri);
+    //struct ccn_charbuf *uri; 
+    //uri = ccn_charbuf_create();
+    //res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
+    //unsigned char *name = ccn_charbuf_as_string(uri);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -258,11 +257,11 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         return;
     }*/
     // ADD TO PIT
-    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
-    res = poflr_add_pit_entry(name, dpp->ori_port_id);
-    if (res < 0) {
-        POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
-    }
+    //printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
+    //res = poflr_add_pit_entry(name, dpp->ori_port_id);
+    //if (res < 0) {
+    //    POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
+    //}
     
     // check CS
     if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
@@ -317,7 +316,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
 static void
 process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
-    printf("ANALISANDO CONTEUDO\n");
+    //printf("ANALISANDO CONTEUDO\n");
     struct ccn_parsed_ContentObject obj = {0};
     struct ccn_parsed_ContentObject *pco = &obj;
     struct cs_entry *ce = NULL;
@@ -341,7 +340,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     uri = ccn_charbuf_create();
     res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
     unsigned char *name = ccn_charbuf_as_string(uri);
-    printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
+    //printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
 
     // check scope
     // FIXME
@@ -358,6 +357,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         return;
     }*/
     // XXX - check PIT??
+    /*
     printf("OLHANDO PIT\n");
     print_pit_tab();
     int i;
@@ -424,7 +424,7 @@ printf("%02x:%02x:%02x:%02x:%02x:%02x",
             printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[i]);
         }
     } 
-                                                 
+    */                                             
     /* add content to CS */
     // check if we need to add to cs
     cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri));
@@ -502,7 +502,7 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
-            //process_incoming_content(dpp, msg, size);
+            process_incoming_content(dpp, msg, size);
             return 1;
         default:
             break;
@@ -779,7 +779,6 @@ static uint32_t pofdp_send_raw_task(void *arg){
         memset(&sll, 0, sizeof sll);
         sll.sll_family = AF_PACKET;
         sll.sll_ifindex = dpp->output_port_id;
-        printf("PORTID = %d\n", dpp->output_port_id);
         sll.sll_protocol = POF_HTONS(ETH_P_ALL);
 
         if(sendto(sock, dpp->buf_out, dpp->output_whole_len, 0, (struct sockaddr *)&sll, sizeof(sll)) == -1){
