@@ -120,6 +120,7 @@ uint32_t pof_datapath_init(){
 
     /* Create CCN Content Store */
     cs_tab = hashtb_create(sizeof(struct cs_entry), NULL); // XXX - CHECK &param
+    frags_tab = hashtb_create(sizeof(struct frags_entry), NULL); // XXX - CHECK &param
     poflr_create_cache_table();
     poflr_create_pit_table();
 
@@ -238,10 +239,11 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
     ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    //struct ccn_charbuf *uri; 
-    //uri = ccn_charbuf_create();
-    //res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
-    //unsigned char *name = ccn_charbuf_as_string(uri);
+    struct ccn_charbuf *uri; 
+    uri = ccn_charbuf_create();
+    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
+    unsigned char *name = ccn_charbuf_as_string(uri);
+    printf("NOME DO INTERESSE = %s\n", name);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -340,7 +342,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     uri = ccn_charbuf_create();
     res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
     unsigned char *name = ccn_charbuf_as_string(uri);
-    //printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
+    printf("RES = %d, NOME PARA COMPARAR = %s\n", res, name);
 
     // check scope
     // FIXME
@@ -487,6 +489,13 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
     ssize_t dres;
     enum ccn_dtag dtag;
 
+    printf("SIZE = %d\n", size);
+    int i;
+    printf("MSG = ");
+    for (i = 0; i < size; i++){
+        printf("%02x ", msg[i]);
+    }
+    printf("\n");
     d->state |= CCN_DSTATE_PAUSE;
     dres = ccn_skeleton_decode(d, msg, size);
     if (d->state < 0)
@@ -499,18 +508,112 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
     switch (dtag) {
         case CCN_DTAG_Interest:
             POF_DEBUG_CPRINT_FL(1,RED,"INTERESTTTTTTTTTTTTTTTTTTTTTT!!!!\n");
+            printf("INTERESTTTTTTTTTTTTTTTTTTTTTT!!!!\n");
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
+            printf("CONTENTTTTT!!!!\n");
             process_incoming_content(dpp, msg, size);
             return 1;
         default:
+            printf("CAIU NO DEFAULT!\n");
             break;
     }
     //POF_DEBUG_CPRINT_FL(1,RED, "discarding unknown message; dtag=%u, size = %lu",
     //         (unsigned)dtag,
     //         (unsigned long)size);
     return 1;
+}
+
+static uint32_t try_ccn(struct pofdp_packet *dpp)
+{
+        /* Check content store */
+        // FIXME - terminar 
+        //struct ccn_parsed_ContentObject obj = {0};
+        struct ccn_skeleton_decoder decoder = {0};
+        struct ccn_skeleton_decoder *d = &decoder;
+        ssize_t dres;
+        enum ccn_dtag dtag;
+        ssize_t msgstart = 0, length;
+        unsigned char *buf;
+        uint32_t ret;
+        printf("dpp->orilen = %d\n", dpp->ori_len);
+        if ((dpp->ori_len < 42)|| (dpp->buf == NULL)){
+            return 1;
+        }
+        buf = dpp->buf + 42;
+        length = dpp->ori_len - 42;
+        dres = ccn_skeleton_decode(d, buf, length);
+        ret = 1;
+        while (d->state == 0) {
+            ret = process_ccn_message(dpp, buf + msgstart, d->index - msgstart);
+            if (ret == 0)
+                break;
+            msgstart = d->index;
+            if (msgstart == length)
+                break;
+            ccn_skeleton_decode(d,
+                                buf + msgstart,
+                                length - msgstart);
+        }
+        return ret;
+}
+
+static uint32_t
+handle_ip_fragmentation(struct pofdp_packet *dpp)
+{
+    struct frags_entry *ce = NULL;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr);
+    struct ether_header *eh = (struct ether_header *)dpp->buf;
+    struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
+    int flags, offset;
+    offset = ntohs(iph->frag_off);
+    flags = offset & ~IP_OFFMASK;
+    offset &= IP_OFFMASK;
+    offset = offset * 8;
+    printf("OFFSET = %d, FLAGS = %d, DF = %d, MF = %d, TOT_LEN = %d\n", offset, flags, flags & IP_DF, flags & IP_MF, ntohs(iph->tot_len));
+    if (flags & IP_DF){
+        printf("DF SET!!\n");
+        return 1;
+    }
+    unsigned char bufid[1];
+    bufid[0] = (unsigned char)iph->id;
+    hashtb_start(frags_tab, e);
+    hashtb_seek(e, bufid, 1, 0);
+    ce = e->data;
+    if (ce == NULL){
+        printf("CRIANDO ENTRADA!!\n");
+        ce = (struct frags_entry*)malloc(sizeof(struct frags_entry));
+    }
+    memcpy(ce->data+offset, dpp->buf+sheaders, ntohs(iph->tot_len)-20);
+    ce->size += ntohs(iph->tot_len)-20;
+    memcpy(ce->packets[ce->n_packets], dpp->buf, dpp->ori_len);
+    ce->n_packets++;
+    if (flags & IP_MF){
+        printf("MF SET!!\n");
+        hashtb_end(e);
+        return 0;
+    }
+
+    unsigned char* data = (unsigned char*)malloc(ce->size*sizeof(char)+sheaders);
+        struct ether_header *eh_new = (struct ether_header *)data;
+        struct iphdr *iph_new = (struct iphdr *)(data + sizeof(struct ether_header));
+        memcpy(eh_new, eh, sizeof(struct ether_header));
+        memcpy(iph_new, iph, sizeof(struct iphdr));
+        memcpy(data+sheaders, ce->data, ce->size);
+        free(dpp->buf);
+        dpp->buf = data;
+        struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
+        printf("UDP SOURCE = %d\n", ntohs(udph->source));
+        printf("UDP DEST = %d\n", ntohs(udph->dest));
+        dpp->ori_len = sheaders + ce->size;
+        dpp->left_len = sheaders + ce->size;
+        dpp->output_packet_len = sheaders + ce->size;
+        dpp->output_whole_len = sheaders + ce->size;
+        hashtb_end(e);
+        return try_ccn(dpp);
 }
 
 
@@ -554,31 +657,15 @@ static uint32_t pofdp_main_task(void *arg_ptr){
             continue;
         }
 
-        /* Check content store */
-        // FIXME - terminar 
-        //struct ccn_parsed_ContentObject obj = {0};
-        struct ccn_skeleton_decoder decoder = {0};
-        struct ccn_skeleton_decoder *d = &decoder;
-        ssize_t dres;
-        enum ccn_dtag dtag;
-        ssize_t msgstart = 0, length;
-        unsigned char *buf;
-        //printf("SIZE = %d, BUF = %s\n", dpp->ori_len, dpp->buf);
-        buf = dpp->buf + 42;
-        length = dpp->ori_len - 42;
-        dres = ccn_skeleton_decode(d, buf, length);
-        ret = 1;
-        while (d->state == 0) {
-            ret = process_ccn_message(dpp, buf + msgstart, d->index - msgstart);
-            if (ret == 0)
-                break;
-            msgstart = d->index;
-            if (msgstart == length)
-                break;
-            ccn_skeleton_decode(d,
-                                buf + msgstart,
-                                length - msgstart);
+        printf("TENTA CCN\n");
+        ret = try_ccn(dpp);
+        if (ret == 0){
+		    free_packet_data(dpp);
+            continue;
         }
+       
+        printf("IP FRAGMENTATION\n"); 
+        ret = handle_ip_fragmentation(dpp);
         if (ret == 0){
 		    free_packet_data(dpp);
             continue;
@@ -591,6 +678,7 @@ static uint32_t pofdp_main_task(void *arg_ptr){
 			continue;
 		}
 
+        printf("ENCAMINHA PACOTE\n");
         /* Forward the packet. */
         ret = pofdp_forward(dpp, first_ins);
         POF_CHECK_RETVALUE_NO_RETURN_NO_UPWARD(ret);
@@ -824,6 +912,7 @@ uint32_t pofdp_send_raw(struct pofdp_packet *dpp){
     pofdp_copy_bit((uint8_t *)dpp->metadata, data, dpp->output_metadata_offset, \
 			dpp->output_metadata_len * POF_BITNUM_IN_BYTE);
 	/* Copy packet to output buffer right behind metadata. */
+    printf("OFFSETS %d %d\n", dpp->output_metadata_len, dpp->output_packet_offset);
     memcpy(data + dpp->output_metadata_len, dpp->buf + dpp->output_packet_offset, dpp->output_packet_len);
 	dpp->buf_out = data;
 
@@ -836,7 +925,41 @@ uint32_t pofdp_send_raw(struct pofdp_packet *dpp){
 
     /* Check the packet lenght. */
     if(dpp->output_whole_len > POF_MTU_LENGTH){
-        POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_PACKET_LEN_ERROR, g_upward_xid++);
+        printf("MAIOR QUE O MTU\n");
+        struct frags_entry *ce = NULL;
+        struct hashtb_enumerator ee;
+        struct hashtb_enumerator *e = &ee;
+        struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
+        unsigned char bufid[1];
+        bufid[0] = (unsigned char)iph->id;
+        hashtb_start(frags_tab, e);
+        hashtb_seek(e, bufid, 1, 0);
+        ce = e->data;
+        if (ce == NULL){
+            POF_ERROR_HANDLE_RETURN_UPWARD(POFET_SOFTWARE_FAILED, POF_PACKET_LEN_ERROR, g_upward_xid++);
+        }
+        int i;
+        printf("N_PACKETS = %d\n", ce->n_packets);
+        for (i = 0; i < ce->n_packets; i++){
+            printf("I = %d\n", i);
+            int size = sizeof(struct ether_header) + sizeof(struct iphdr);
+            if (i == (ce->n_packets-1)){
+                size += ce->size - ((ce->n_packets-1)*1480);
+            }else{
+                size += 1480;
+            }
+            dpp->ori_len = size;
+            dpp->left_len = size;
+            dpp->output_packet_len = size;
+            dpp->output_whole_len = size;
+            free(dpp->buf);
+            dpp->buf = (unsigned char*)malloc(size*sizeof(char));
+            memcpy(dpp->buf, ce->packets[i], size);
+            pofdp_send_raw(dpp);
+        }
+        hashtb_delete(e);
+        hashtb_end(e);
+        return POF_OK;
     }
 
     /* Write the packet to the send queue. */

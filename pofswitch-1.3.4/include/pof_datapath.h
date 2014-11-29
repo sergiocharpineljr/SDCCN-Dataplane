@@ -185,6 +185,15 @@ struct cs_entry {
     unsigned char *ccnb;        /**< ccnb-encoded ContentObject */
 };
 
+/* fragmentations store */
+struct hashtb *frags_tab;
+struct frags_entry {
+    uint8_t data[5000];
+    int size;                   /**< Size of ContentObject */
+    uint8_t packets[10][1600];
+    int n_packets;
+};
+
 
 #endif // POF_DATAPATH_ON
 #endif // _POF_DATAPATH_H_
