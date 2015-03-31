@@ -196,7 +196,6 @@ void print_cache_tab(){
     struct hashtb_enumerator *e = &ee;
     int i;
 
-    printf("PRINTING CACHE_TAB\n");
     hashtb_start(cache_tab, e);
     for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
         ce = e->data;
@@ -244,7 +243,6 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
 
         uri = ccn_charbuf_create();
         int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
-        printf("res = %d, TESTE = %s\n", res, ccn_charbuf_as_string(uri));
         memcpy(cache_info.entries+n, ccn_charbuf_as_string(uri), strlen(ccn_charbuf_as_string(uri))+1);
         n += strlen(ccn_charbuf_as_string(uri))+1;
         cache_info.entries[n-1] = '\t';
@@ -262,7 +260,6 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
         cache_info.entries[n-1] = '\n';
     }
     cache_info.entries[n-1] = '\0';
-    printf("ENTRIES = %s\n", cache_info.entries);
     hashtb_end(e);
 
     pof_HtoN_transfer_cache_info(&cache_info);
@@ -282,23 +279,18 @@ uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr){
     int i;
     struct ccn_charbuf *uri;
 
-    printf("CHAMADO DELETE CS ENTRY - %s\n", name);
     hashtb_start(cs_tab, e);
     for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
         ce = e->data;
         uri = ccn_charbuf_create();
         int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
-        printf("CSENTRY %s\n", ccn_charbuf_as_string(uri));
         if (strcmp(ccn_charbuf_as_string(uri), name) == 0){
-            printf("DELETADO CSENTRY\n");
             free(ce->name);
             hashtb_delete(e);
             hashtb_end(e);
-            printf("RETORNADNO OK\n");
             return POF_OK;
         }
     }
-    printf("CHEGOU AQUI?\n");
     hashtb_end(e);
     return -1;
 }

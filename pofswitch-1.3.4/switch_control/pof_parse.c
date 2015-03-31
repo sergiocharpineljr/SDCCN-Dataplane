@@ -243,14 +243,12 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
                     //print_cache_tab();
                     break;
                 default:
-                    printf("COMMANDD = %d\n", cache_ptr->command);
                     POF_ERROR_HANDLE_RETURN_UPWARD(POFET_CACHE_MOD_FAILED, POFTMFC_BAD_COMMAND, g_recv_xid);
                     break;
             }
             break;
 
         case POFT_CS_MOD:
-            printf("RECEBI POFT_CS_MOD\n");
             cache_ptr = (pof_cache_entry*)(msg_ptr + sizeof(pof_header));
             pof_NtoH_transfer_cache_entry(cache_ptr);
 
@@ -268,7 +266,6 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
                     break;
                 default:
-                    printf("COMMANDD = %d\n", cache_ptr->command);
                     POF_ERROR_HANDLE_RETURN_UPWARD(POFET_CACHE_MOD_FAILED, POFTMFC_BAD_COMMAND, g_recv_xid);
                     break;
             }
@@ -281,13 +278,10 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
 
             switch (cache_info_ptr->command){
                 case OFPCIAC_REQUEST:
-                    printf("RECEBI POFT_CACHE_INFO REQUEST! ENVIANDO REPLY\n");
                     ret = poflr_send_cache_info(cache_info_ptr);
-                    printf("POFT_CACHE_INFO REPLY ENVIADO! cod = %d\n", ret);
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
                     break;
                 default:
-                    printf("COMMANDD = %d\n", cache_info_ptr->command);
                     POF_ERROR_HANDLE_RETURN_UPWARD(POFET_CACHE_MOD_FAILED, POFTMFC_BAD_COMMAND, g_recv_xid);
                     break;
             }
