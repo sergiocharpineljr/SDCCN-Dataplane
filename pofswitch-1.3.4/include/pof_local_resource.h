@@ -43,7 +43,8 @@
 #define POFLR_GROUP_NUMBER (128)
 
 /* Max number of local physical port. */
-#define POFLR_DEVICE_PORT_NUM_MAX (16)
+//#define POFLR_DEVICE_PORT_NUM_MAX (16)
+#define POFLR_DEVICE_PORT_NUM_MAX (56)
 
 /* Max key length. */
 #define POFLR_KEY_LEN (160)

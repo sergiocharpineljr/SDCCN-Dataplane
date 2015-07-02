@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 
 /* Define pofbf_key to build queue using ftok function. */
 static key_t pofbf_key = 0;
@@ -253,6 +254,7 @@ uint32_t pofbf_queue_write(uint32_t queue_id, const void *message, uint32_t msg_
     memcpy(msg_ptr->mdata, message, msg_len);
 
     if(-1 == msgsnd(queue_id, msg_ptr, msg_len+sizeof(struct msg), timeout)){
+        printf("ERRNO = %d\n", errno);
         free(msg_ptr);
         POF_ERROR_HANDLE_RETURN_NO_UPWARD(POFET_SOFTWARE_FAILED, POF_WRITE_MSG_QUEUE_FAILURE);
     }

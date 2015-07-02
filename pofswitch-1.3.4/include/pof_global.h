@@ -96,7 +96,6 @@
 /* CCNx stuff */
 #define CCNX_MAX_NAME_SIZE (128)
 #define POFLR_CACHE_MAX_ENTRIES (50)
-//#define POFLR_CACHE_MAX_ENTRIES (10)
 
 /*Define the openflow command type.*/
 typedef enum pof_type {
@@ -597,7 +596,6 @@ typedef struct pof_cache_info {
 
     uint32_t total_entries;
     uint8_t pad2[4];
-    //char entries[POFLR_CACHE_MAX_ENTRIES][CCNX_MAX_NAME_SIZE];
     char entries[CCNX_MAX_NAME_SIZE*POFLR_CACHE_MAX_ENTRIES];
 }pof_cache_info;
 

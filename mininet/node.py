@@ -1010,6 +1010,13 @@ class UserSwitch( Switch ):
         self.deleteIntfs()
 
 
+class UserSwitchTesteAgregacao( UserSwitch ):
+    def start( self, controllers ):
+        controllers[0].ip = '127.0.0.1'
+        controllers[0].port = 6622
+        UserSwitch.start(self, controllers)
+
+
 class OVSLegacyKernelSwitch( Switch ):
     """Open VSwitch legacy kernel-space switch using ovs-openflowd.
        Currently only works in the root namespace."""
