@@ -226,6 +226,7 @@ extern uint32_t poflr_set_key_len(uint32_t key_len);
 struct hashtb *cache_tab;
 struct cache_entry {
     uint8_t strict;
+    uint8_t cs_mod;
     uint16_t idle_timeout;
     uint16_t hard_timeout;
     uint16_t priority;
@@ -243,7 +244,7 @@ struct pit_entry {
     char *name;
 };
 
-extern uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr);
+extern uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr, uint8_t cs_mod);
 extern uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr);
 extern uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr);
 extern struct cache_entry* poflr_match_cache_entry(char *name);

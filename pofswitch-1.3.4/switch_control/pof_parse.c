@@ -226,13 +226,13 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
             switch (cache_ptr->command){
                 case POFCAC_ADD:
                     //print_cache_tab();
-                    ret = poflr_add_cache_entry(cache_ptr);
+                    ret = poflr_add_cache_entry(cache_ptr, 0);
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
                     //print_cache_tab();
                     break;
                 case POFCAC_MODIFY:
                     //print_cache_tab();
-                    ret = poflr_add_cache_entry(cache_ptr);
+                    ret = poflr_add_cache_entry(cache_ptr, 0);
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
                     //print_cache_tab();
                     break;

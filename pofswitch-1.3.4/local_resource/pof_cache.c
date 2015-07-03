@@ -43,7 +43,7 @@
  * Discribe: This function will add a new cache entry in the table. If a
  *           same cache entry is already exist in this table, ERROR.
  ***********************************************************************/
-uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
+uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr, uint8_t cs_mod){
     char *name;
     struct cache_entry *ce = NULL;
     struct hashtb_enumerator ee;
@@ -59,6 +59,7 @@ uint32_t poflr_add_cache_entry(pof_cache_entry *cache_ptr){
     /* Create entry. */
     ce = e->data;
     ce->strict = cache_ptr->strict;
+    ce->cs_mod = cs_mod;
     ce->idle_timeout = cache_ptr->strict;
     ce->hard_timeout = cache_ptr->hard_timeout;
     ce->priority = cache_ptr->priority;
@@ -304,6 +305,15 @@ uint32_t poflr_add_cs_entry(char *name){
     printf("CS ADD ENTRY\n");
     struct ccn_charbuf *buf = ccn_charbuf_create();
 
+    //add name to cache_tab
+    pof_cache_entry *cache_ptr = (pof_cache_entry*)malloc(sizeof(pof_cache_entry));
+    memcpy(cache_ptr->name, name+5, strlen(name)-5);
+    cache_ptr->name[strlen(name)-5] = '\0';
+    cache_ptr->strict = 1;
+    poflr_add_cache_entry(cache_ptr, 1);
+    free(cache_ptr);
+    print_cache_tab();
+
     //create name components
     struct ccn_charbuf *buf_name = ccn_charbuf_create();
     ccn_name_init(buf_name);
@@ -322,7 +332,6 @@ uint32_t poflr_add_cs_entry(char *name){
     }
     memcpy(substr, name+i, j-i);
     substr[j-i] = '\0';
-    printf("substr = %s\n", substr);
     ccn_name_append_str(buf_name, substr);
 
     ccnb_element_begin(buf, CCN_DTAG_Interest);
@@ -340,13 +349,6 @@ uint32_t poflr_add_cs_entry(char *name){
         eh->ether_shost[i] = 0xff;
         eh->ether_dhost[i] = 0xff;
     }
-    //eh->ether_shost[0] = 0xea;
-    //eh->ether_shost[1] = 0x49;
-    //eh->ether_shost[2] = 0xac;
-    //eh->ether_shost[3] = 0xef;
-    //eh->ether_shost[4] = 0x44;
-    //eh->ether_shost[5] = 0xda;
-    //eh->ether_dhost[5] = 0x01;
     eh->ether_type = htons(ETH_P_IP);
 
     /* IP Header */
@@ -356,10 +358,9 @@ uint32_t poflr_add_cs_entry(char *name){
     iph->ttl = 10; // hops
     iph->frag_off = 0;
     iph->protocol = 17; // UDP
-    iph->saddr = inet_addr("10.0.0.3");
-    iph->daddr = inet_addr("10.0.0.1");
-    //iph->tot_len = htons(sheaders - sizeof(struct ether_header) + buf->length);
-    iph->tot_len = htons(46);
+    iph->saddr = inet_addr("10.0.0.1");//FIXME
+    iph->daddr = inet_addr("10.0.0.3");//FIXME
+    iph->tot_len = htons(sheaders - sizeof(struct ether_header) + buf->length);
     udph->check = 0;
     udph->source = htons(9695);
     udph->dest = htons(9695);
@@ -373,7 +374,6 @@ uint32_t poflr_add_cs_entry(char *name){
     dpp->output_packet_offset = 0;
     dpp->output_metadata_offset = 0;
     dpp->output_metadata_len = 0;
-    POF_DEBUG_CPRINT_FL_0X(1,YELLOW,dpp->buf, dpp->output_whole_len,"TESTEE BUF: ");
 
     // FLOOD packet
     pof_port *port_ptr = NULL;
@@ -386,7 +386,6 @@ uint32_t poflr_add_cs_entry(char *name){
         if (port_ptr[i].of_enable == POFLR_PORT_DISABLE)
             continue;
 
-        printf("ENVIANDO PARA\n");
         dpp->output_port_id = port_ptr[i].port_id;
         pofdp_send_raw(dpp);
     }

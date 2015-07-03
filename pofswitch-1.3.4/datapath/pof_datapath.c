@@ -258,11 +258,11 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         return;
     }*/
     // ADD TO PIT
-    //printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
-    //res = poflr_add_pit_entry(name, dpp->ori_port_id);
-    //if (res < 0) {
-    //    POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
-    //}
+    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
+    res = poflr_add_pit_entry(name, dpp->ori_port_id);
+    if (res < 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
+    }
     
     // check CS
     if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
@@ -356,75 +356,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         POF_DEBUG_CPRINT_FL(1,RED,"interest dup nonce");
         return;
     }*/
-    // XXX - check PIT??
-    /*
-    printf("OLHANDO PIT\n");
-    print_pit_tab();
-    int i;
-        int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
-        struct ether_header *eh = (struct ether_header *)dpp->buf;
-        struct iphdr *iph = (struct iphdr *)(dpp->buf + sizeof(struct ether_header));
-        struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
-        int size_content = strlen(dpp->buf+sheaders);
-        unsigned char* data = (unsigned char*)malloc(size_content*sizeof(char)+sheaders);
-        struct ether_header *eh_new = (struct ether_header *)data;
-        struct iphdr *iph_new = (struct iphdr *)(data + sizeof(struct ether_header));
-        struct udphdr *udph_new = (struct udphdr *)(data + sizeof(struct ether_header) + sizeof(struct iphdr));
-    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
-        printf("ACHOU NA PIT\n");
-        for (i = 0; i < pe->n; i++){
-        memcpy(eh_new, eh, sizeof(struct ether_header));
-        memcpy(iph_new, iph, sizeof(struct iphdr));
-        memcpy(udph_new, udph, sizeof(struct udphdr));
-        int j;
-        for (j = 0; j < 6; j++){
-            eh_new->ether_shost[j] = eh->ether_shost[j];
-            eh_new->ether_dhost[j] = eh->ether_dhost[j];
-        }
-        iph_new->saddr = iph->saddr;
-        iph_new->daddr = iph->daddr;
-        iph_new->tot_len = htons(sheaders - sizeof(struct ether_header) + size_content);
-        udph_new->source = udph->source;
-        udph_new->dest = udph->dest;
-        udph_new->check = 0;
-        udph_new->len = htons(sizeof(struct udphdr)+size_content);
-        memcpy(data+sheaders, dpp->buf+sheaders, size_content);
-        iph_new->check = 0;
-        iph_new->check = csum((unsigned short *)(data+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
-        //free(dpp->buf);
-        //dpp->buf = data;
-        dpp->output_port_id = pe->port_ids[i];
-        //dpp->output_port_id = POFP_FLOOD;
-        //dpp->output_packet_len = sheaders +size_content;
-        //dpp->output_whole_len = sheaders + size_content;
-
-        printf("IP SRC = %s\n", inet_ntoa(iph_new->saddr));
-        printf("IP DST = %s\n", inet_ntoa(iph_new->daddr));
-printf("%02x:%02x:%02x:%02x:%02x:%02x",
-    (unsigned)eh_new->ether_dhost[0],
-    (unsigned)eh_new->ether_dhost[1],
-    (unsigned)eh_new->ether_dhost[2],
-    (unsigned)eh_new->ether_dhost[3],
-    (unsigned)eh_new->ether_dhost[4],
-    (unsigned)eh_new->ether_dhost[5]);
-printf("%02x:%02x:%02x:%02x:%02x:%02x",
-    (unsigned)eh_new->ether_shost[0],
-    (unsigned)eh_new->ether_shost[1],
-    (unsigned)eh_new->ether_shost[2],
-    (unsigned)eh_new->ether_shost[3],
-    (unsigned)eh_new->ether_shost[4],
-    (unsigned)eh_new->ether_shost[5]);
-        printf("SIZE DO CONTEUDO = %d\n", size_content);
-        printf("ENVIANDO PARA PORTID = %d\n", pe->port_ids[i]);
-        printf("PORTA ORIGEM = %d\n", dpp->ori_port_id);
-        printf("PACKET_LEN = %d\n", dpp->output_packet_len);
-        printf("WHOLE_LEN = %d\n", dpp->output_whole_len);
-        POF_DEBUG_CPRINT_FL_0X(1,GREEN,dpp->buf,dpp->left_len,"MANDEI ENVIAR O PACOTE: ");
-            //pofdp_send_raw(dpp);
-            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[i]);
-        }
-    } 
-    */                                             
+   
     /* add content to CS */
     // check if we need to add to cs
     cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri));
@@ -470,6 +402,25 @@ printf("%02x:%02x:%02x:%02x:%02x:%02x",
     ce->updated = time(NULL);
     ccn_charbuf_destroy(&namebuf);
     hashtb_end(e);
+    if (cae->cs_mod == 1)
+    {
+        poflr_delete_cs_entry(cae);
+        return;
+    }
+
+    // XXX - check PIT??
+    printf("OLHANDO PIT\n");
+    print_pit_tab();
+    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
+        printf("ACHOU NA PIT\n");
+        int j;
+        for (j = 0; j < pe->n; j++){
+            dpp->output_port_id = pe->port_ids[j];
+            pofdp_send_raw(dpp);
+            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[j]);
+        }
+    } 
+ 
     return;
 }
 
@@ -499,8 +450,7 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
-            process_incoming_content(dpp, msg, size);
-            return 1;
+            return process_incoming_content(dpp, msg, size);
         default:
             break;
     }
