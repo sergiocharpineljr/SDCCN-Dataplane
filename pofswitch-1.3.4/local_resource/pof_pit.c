@@ -68,6 +68,7 @@ uint32_t poflr_delete_pit_entry(char *name){
         if (strncmp(ce->name, name, strlen(name)) == 0){
             free(ce->name);
             hashtb_delete(e);
+            hashtb_end(e);
             return POF_OK;
         }
     }

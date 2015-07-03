@@ -257,13 +257,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         POF_DEBUG_CPRINT_FL(1,RED,"interest dup nonce");
         return;
     }*/
-    // ADD TO PIT
-    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
-    res = poflr_add_pit_entry(name, dpp->ori_port_id);
-    if (res < 0) {
-        POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
-    }
-    
+   
     // check CS
     if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
         ccn_charbuf_destroy(&namebuf);
@@ -308,6 +302,14 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
         pofdp_send_raw(dpp);
         return 0;
     }
+
+    // ADD TO PIT
+    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
+    res = poflr_add_pit_entry(name, dpp->ori_port_id);
+    if (res < 0) {
+        POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
+    }
+ 
     return 1;
 }
 
@@ -317,7 +319,6 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
 static void
 process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
 {
-    //printf("ANALISANDO CONTEUDO\n");
     struct ccn_parsed_ContentObject obj = {0};
     struct ccn_parsed_ContentObject *pco = &obj;
     struct cs_entry *ce = NULL;
@@ -326,8 +327,10 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int res;
-    if (size > 65535)
+    if (size > 65535){
+        printf("SIZE TOO BIG!\n");
         return;
+    }
     res = ccn_parse_ContentObject(msg, size, pco, NULL);
     if (res < 0) {
         POF_DEBUG_CPRINT_FL(1,RED,"error parsing Content - code %d", res);
@@ -357,6 +360,26 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         return;
     }*/
    
+    // XXX - check PIT??
+    printf("OLHANDO PIT\n");
+    print_pit_tab();
+    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
+        printf("ACHOU NA PIT\n");
+        int j;
+        for (j = 0; j < pe->n; j++){
+            dpp->output_port_id = pe->port_ids[j];
+            dpp->output_packet_len = dpp->ori_len;
+            dpp->output_whole_len = dpp->ori_len;
+            dpp->output_packet_offset = 0;
+            dpp->output_metadata_offset = 0;
+            dpp->output_metadata_len = 0;
+            printf("packet_len = %d, whole_len = %d\n", dpp->output_packet_len, dpp->output_whole_len);
+            pofdp_send_raw(dpp);
+            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[j]);
+        }
+        poflr_delete_pit_entry(name);
+    }
+
     /* add content to CS */
     // check if we need to add to cs
     cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri));
@@ -407,19 +430,6 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         poflr_delete_cs_entry(cae);
         return;
     }
-
-    // XXX - check PIT??
-    printf("OLHANDO PIT\n");
-    print_pit_tab();
-    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
-        printf("ACHOU NA PIT\n");
-        int j;
-        for (j = 0; j < pe->n; j++){
-            dpp->output_port_id = pe->port_ids[j];
-            pofdp_send_raw(dpp);
-            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[j]);
-        }
-    } 
  
     return;
 }
@@ -450,7 +460,8 @@ process_ccn_message(struct pofdp_packet *dpp, unsigned char *msg, size_t size)
             return process_incoming_interest(dpp, msg, size);
         case CCN_DTAG_ContentObject:
             POF_DEBUG_CPRINT_FL(1,RED,"CONTENTTTTT!!!!\n");
-            return process_incoming_content(dpp, msg, size);
+            process_incoming_content(dpp, msg, size);
+            return 0;
         default:
             break;
     }
