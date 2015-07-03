@@ -30,6 +30,9 @@
 #include "../include/pof_datapath.h"
 #include "../include/ccn/hashtb.h"
 #include "string.h"
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <net/ethernet.h>
 
 /***********************************************************************
  * Add a cache entry.
@@ -293,4 +296,99 @@ uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr){
     }
     hashtb_end(e);
     return -1;
+}
+
+
+//FIXME
+uint32_t poflr_add_cs_entry(char *name){
+    printf("CS ADD ENTRY\n");
+    struct ccn_charbuf *buf = ccn_charbuf_create();
+
+    //create name components
+    struct ccn_charbuf *buf_name = ccn_charbuf_create();
+    ccn_name_init(buf_name);
+    char substr[strlen(name)];
+    int i, j;
+    i = 6;
+    for (j = i; j < strlen(name); j++)
+    {
+        if (name[j] == '/'){
+            memcpy(substr, name+i, j-i);
+            substr[j-i] = '\0';
+            ccn_name_append_str(buf_name, substr);
+            i = j+1;
+            memset(substr,0,sizeof(substr));
+        }
+    }
+    memcpy(substr, name+i, j-i);
+    substr[j-i] = '\0';
+    printf("substr = %s\n", substr);
+    ccn_name_append_str(buf_name, substr);
+
+    ccnb_element_begin(buf, CCN_DTAG_Interest);
+    ccn_charbuf_append_charbuf(buf, buf_name);
+    ccnb_element_end(buf);
+
+    struct pofdp_packet *dpp = malloc(sizeof *dpp);
+    int sheaders = sizeof(struct ether_header)+sizeof(struct iphdr)+sizeof(struct udphdr);
+    unsigned char* data = (unsigned char*)malloc(buf->length*sizeof(char)+sheaders);
+    struct ether_header *eh = (struct ether_header *)data;
+    struct iphdr *iph = (struct iphdr *)(data + sizeof(struct ether_header));
+    struct udphdr *udph = (struct udphdr *)(data + sizeof(struct ether_header) + sizeof(struct iphdr));
+
+    for (i = 0; i < 6; i++){
+        eh->ether_shost[i] = 0xff;
+        eh->ether_dhost[i] = 0xff;
+    }
+    //eh->ether_shost[0] = 0xea;
+    //eh->ether_shost[1] = 0x49;
+    //eh->ether_shost[2] = 0xac;
+    //eh->ether_shost[3] = 0xef;
+    //eh->ether_shost[4] = 0x44;
+    //eh->ether_shost[5] = 0xda;
+    //eh->ether_dhost[5] = 0x01;
+    eh->ether_type = htons(ETH_P_IP);
+
+    /* IP Header */
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->id = htons(54321);
+    iph->ttl = 10; // hops
+    iph->frag_off = 0;
+    iph->protocol = 17; // UDP
+    iph->saddr = inet_addr("10.0.0.3");
+    iph->daddr = inet_addr("10.0.0.1");
+    //iph->tot_len = htons(sheaders - sizeof(struct ether_header) + buf->length);
+    iph->tot_len = htons(46);
+    udph->check = 0;
+    udph->source = htons(9695);
+    udph->dest = htons(9695);
+    udph->len = htons(sizeof(struct udphdr) + buf->length);
+    memcpy(data+sheaders, buf->buf, buf->length);
+    iph->check = 0;
+    iph->check = csum((unsigned short *)(data+sizeof(struct ether_header)), sizeof(struct iphdr)/2);
+    dpp->buf = data;
+    dpp->output_packet_len = sheaders + buf->length;
+    dpp->output_whole_len = sheaders + buf->length;
+    dpp->output_packet_offset = 0;
+    dpp->output_metadata_offset = 0;
+    dpp->output_metadata_len = 0;
+    POF_DEBUG_CPRINT_FL_0X(1,YELLOW,dpp->buf, dpp->output_whole_len,"TESTEE BUF: ");
+
+    // FLOOD packet
+    pof_port *port_ptr = NULL;
+    uint16_t port_number = 0;
+    uint32_t ret;
+    poflr_get_port_number(&port_number);
+    poflr_get_port(&port_ptr);
+
+    for(i=0; i<port_number; i++){
+        if (port_ptr[i].of_enable == POFLR_PORT_DISABLE)
+            continue;
+
+        printf("ENVIANDO PARA\n");
+        dpp->output_port_id = port_ptr[i].port_id;
+        pofdp_send_raw(dpp);
+    }
+    return POF_OK;
 }

@@ -252,6 +252,7 @@ extern void poflr_destroy_cache_table();
 extern void print_cache_tab();
 extern uint32_t poflr_cache_full_report(pof_cache_full_command command, int total_entries, int used_entries);
 extern uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr);
+extern uint32_t poflr_add_cs_entry(char *name);
 extern uint32_t poflr_add_pit_entry(char *name, uint8_t port_id);
 extern uint32_t poflr_delete_pit_entry(char *name);
 extern void poflr_create_pit_table();

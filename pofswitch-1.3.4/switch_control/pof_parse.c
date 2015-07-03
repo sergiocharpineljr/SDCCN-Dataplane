@@ -254,8 +254,8 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
 
             switch (cache_ptr->command){
                 case POFCSC_ADD:
-                    //ret = poflr_add_cache_entry(cache_ptr);
-                    //POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
+                    ret = poflr_add_cs_entry(cache_ptr->name);
+                    POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
                     break;
                 case POFCSC_MODIFY:
                     //ret = poflr_add_cache_entry(cache_ptr);
