@@ -39,15 +39,18 @@ uint32_t poflr_add_pit_entry(char *name, uint8_t port_id){
     hashtb_start(pit_tab, e);
     if (hashtb_seek(e, name, strlen(name), 0) == HT_OLD_ENTRY){
         ce = e->data;
-        ce->port_ids[ce->n] = port_id;
-        ce->n++;
+        if (ce->n < POFLR_MAX_PORT_IDS)
+        {
+            ce->port_ids[ce->n] = port_id;
+            ce->n++;
+        }
         hashtb_end(e);
         return POF_OK;
     }
     /* Create entry. */
     ce = e->data;
-    ce->name = (char*)malloc(strlen(name)+1*sizeof(char));
-    memcpy(ce->name, name, strlen(name)+1);  
+    ce->name = (char*)malloc((strlen(name)+1)*sizeof(char));
+    strcpy(ce->name, name);  
     ce->n = 1;
     ce->port_ids[0] = port_id;
     hashtb_end(e);
@@ -59,8 +62,6 @@ uint32_t poflr_delete_pit_entry(char *name){
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int i;
-    //name = name+1;
-    //name[strlen(name)] = '\0';
 
     hashtb_start(pit_tab, e);
     for (i = 0; i < hashtb_n(pit_tab); i++, hashtb_next(e)){

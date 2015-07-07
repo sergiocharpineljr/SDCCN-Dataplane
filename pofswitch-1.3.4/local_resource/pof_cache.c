@@ -119,20 +119,28 @@ uint32_t poflr_modify_cache_entry(pof_cache_entry *cache_ptr){
  ***********************************************************************/
 uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
     //FIXME: IMPLEMENTAR LISTA ORDENADA PARA ISTO
+    //DO CONTROLADOR VEM APENAS O INDEX, DO CS_MOD ADD VEM O NOME!
     struct cache_entry *ce = NULL;
     struct hashtb_enumerator ee;
     struct hashtb_enumerator *e = &ee;
     int i;
-    char *name = cache_ptr->name+1;
-    name[strlen(name)] = '\0';
+    int found = 0;
 
     hashtb_start(cache_tab, e);
     for (i = 0; i < hashtb_n(cache_tab); i++, hashtb_next(e)){
         ce = e->data;
-        if (ce->index == cache_ptr->index){
+        if (ce->index >= 0){
+           if(ce->index == cache_ptr->index){
+               found = 1;
+           }
+        }else if(strcmp(cache_ptr->name, ce->name) == 0){
+            found = 1;
+        }
+        if (found){
             free(ce->name);
             hashtb_delete(e);
             //FIXME DELETAR ENTRADAS DA CONTENTSTORE
+            /*
             struct cs_entry *ce1;
             struct hashtb_enumerator ee1;
             struct hashtb_enumerator *e1 = &ee1;
@@ -150,8 +158,8 @@ uint32_t poflr_delete_cache_entry(pof_cache_entry *cache_ptr){
                     }
                 }
             }
+            hashtb_end(e1);*/
             hashtb_end(e);
-            hashtb_end(e1);
             return POF_OK;
         }
     }
@@ -231,7 +239,6 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
     int i;
     char *name;
     char buff[20];
-    struct ccn_charbuf *uri;
     struct ccn_charbuf *ccnb = NULL;
 
     pof_cache_info cache_info;
@@ -245,11 +252,9 @@ uint32_t poflr_send_cache_info(pof_cache_info *cache_info_ptr){
     for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
         ce = e->data;
 
-        uri = ccn_charbuf_create();
-        int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
-        memcpy(cache_info.entries+n, ccn_charbuf_as_string(uri), strlen(ccn_charbuf_as_string(uri))+1);
-        n += strlen(ccn_charbuf_as_string(uri))+1;
-        cache_info.entries[n-1] = '\t';
+        memcpy(cache_info.entries+n, ce->name, strlen(ce->name));
+        n += strlen(ce->name);
+        cache_info.entries[n++] = '\t';
 
         //add created datetime
         strftime(buff, 20, "%d-%m-%Y %H:%M:%S", localtime(&ce->created));
@@ -281,20 +286,18 @@ uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr){
     struct hashtb_enumerator *e = &ee;
     char *name = cache_ptr->name;
     int i;
-    struct ccn_charbuf *uri;
 
     hashtb_start(cs_tab, e);
     for (i = 0; i < hashtb_n(cs_tab); i++, hashtb_next(e)){
         ce = e->data;
-        uri = ccn_charbuf_create();
-        int res = ccn_uri_append_flatname(uri, ce->name, ce->name_size, 1);
-        if (strcmp(ccn_charbuf_as_string(uri), name) == 0){
+        if (strcmp(ce->name, name) == 0){
             free(ce->name);
             hashtb_delete(e);
             hashtb_end(e);
             return POF_OK;
         }
     }
+    printf("ENTRADA da CS '%s' NAO ENCONTRADA\n", name); 
     hashtb_end(e);
     return -1;
 }
@@ -302,17 +305,18 @@ uint32_t poflr_delete_cs_entry(pof_cache_entry *cache_ptr){
 
 //FIXME
 uint32_t poflr_add_cs_entry(char *name){
-    printf("CS ADD ENTRY\n");
+    //printf("CS ADD ENTRY\n");
     struct ccn_charbuf *buf = ccn_charbuf_create();
 
     //add name to cache_tab
     pof_cache_entry *cache_ptr = (pof_cache_entry*)malloc(sizeof(pof_cache_entry));
-    memcpy(cache_ptr->name, name+5, strlen(name)-5);
+    memcpy(cache_ptr->name, name+5, strlen(name)-5); //because of ccnx:/
     cache_ptr->name[strlen(name)-5] = '\0';
     cache_ptr->strict = 1;
+    cache_ptr->index = -1;
     poflr_add_cache_entry(cache_ptr, 1);
     free(cache_ptr);
-    print_cache_tab();
+    //print_cache_tab();
 
     //create name components
     struct ccn_charbuf *buf_name = ccn_charbuf_create();

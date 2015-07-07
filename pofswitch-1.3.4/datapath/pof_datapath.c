@@ -238,11 +238,8 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     size_t start = pi->offset[CCN_PI_B_Name];
     size_t end = pi->offset[CCN_PI_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000);
-    ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    struct ccn_charbuf *uri; 
-    uri = ccn_charbuf_create();
-    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
-    unsigned char *name = ccn_charbuf_as_string(uri);
+    ccn_uri_append(namebuf, msg + start, end - start, 1);
+    unsigned char *name = ccn_charbuf_as_string(namebuf);
     // check scope
     // FIXME
     /*if (pi->scope >= 0 && pi->scope < 2 &&
@@ -259,7 +256,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     }*/
    
     // check CS
-    if (ce = hashtb_lookup(cs_tab, namebuf->buf, namebuf->length)){
+    if (ce = hashtb_lookup(cs_tab, name, strlen(name))){
         ccn_charbuf_destroy(&namebuf);
         if (ce->size == 0)
             return 1;
@@ -304,7 +301,7 @@ process_incoming_interest(struct pofdp_packet *dpp, unsigned char *msg, size_t s
     }
 
     // ADD TO PIT
-    printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
+    //printf("ADICIONANDO NOME %s, porta %d na PIT\n", name, dpp->ori_port_id);
     res = poflr_add_pit_entry(name, dpp->ori_port_id);
     if (res < 0) {
         POF_DEBUG_CPRINT_FL(1,RED,"ERROR ADDING TO PIT - code %d", res);
@@ -339,11 +336,8 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     size_t start = pco->offset[CCN_PCO_B_Name];
     size_t end = pco->offset[CCN_PCO_E_Name];
     struct ccn_charbuf *namebuf = ccn_charbuf_create_n(10000); // XXX Need to release
-    ccn_flatname_from_ccnb(namebuf, msg + start, end - start);
-    struct ccn_charbuf *uri; 
-    uri = ccn_charbuf_create();
-    res = ccn_uri_append_flatname(uri, namebuf->buf, namebuf->length, 1);
-    unsigned char *name = ccn_charbuf_as_string(uri);
+    ccn_uri_append(namebuf, msg + start, end - start, 1);
+    unsigned char *name = ccn_charbuf_as_string(namebuf);
 
     // check scope
     // FIXME
@@ -361,10 +355,10 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     }*/
    
     // XXX - check PIT??
-    printf("OLHANDO PIT\n");
-    print_pit_tab();
+    //printf("OLHANDO PIT\n");
+    //print_pit_tab();
     if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
-        printf("ACHOU NA PIT\n");
+        //printf("ACHOU NA PIT\n");
         int j;
         for (j = 0; j < pe->n; j++){
             dpp->output_port_id = pe->port_ids[j];
@@ -373,16 +367,14 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
             dpp->output_packet_offset = 0;
             dpp->output_metadata_offset = 0;
             dpp->output_metadata_len = 0;
-            printf("packet_len = %d, whole_len = %d\n", dpp->output_packet_len, dpp->output_whole_len);
             pofdp_send_raw(dpp);
-            printf("ENVIADO PARA PORTID = %d\n", pe->port_ids[j]);
         }
         poflr_delete_pit_entry(name);
     }
 
     /* add content to CS */
     // check if we need to add to cs
-    cae = poflr_match_cache_entry(ccn_charbuf_as_string(uri));
+    cae = poflr_match_cache_entry(name);
     if (cae == NULL){
         ccn_charbuf_destroy(&namebuf);
         return;
@@ -405,7 +397,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         poflr_cache_full_report(OFPCFAC_WARN, POFLR_CACHE_WARN_ENTRIES, hashtb_n(cs_tab)); 
     }
 
-    hashtb_seek(e, namebuf->buf, namebuf->length, 0);
+    hashtb_seek(e, name, strlen(name), 0);
     ce = e->data;
     if (ce == NULL){
         ce = (struct cs_entry*)malloc(sizeof(struct cs_entry));
@@ -414,9 +406,9 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
         POF_DEBUG_CPRINT_FL(1,RED,"REMOVING OLD CONTENT FROM CONTENT STORE!");
         free(ce->ccnb);
     }else{
-        ce->name = (unsigned char*)malloc((namebuf->length+1)*sizeof(char));
-        memcpy(ce->name, namebuf->buf, namebuf->length);
-        ce->name_size = namebuf->length;
+        ce->name = (unsigned char*)malloc((strlen(name)+1)*sizeof(char));
+        strcpy(ce->name, name);
+        ce->name_size = strlen(name);
     }
     ce->ccnb = (unsigned char*)malloc(size*sizeof(char));
     memcpy(ce->ccnb, msg, size);
@@ -427,7 +419,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     hashtb_end(e);
     if (cae->cs_mod == 1)
     {
-        poflr_delete_cs_entry(cae);
+        poflr_delete_cache_entry(cae);
         return;
     }
  
@@ -483,7 +475,7 @@ static uint32_t try_ccn(struct pofdp_packet *dpp)
         ssize_t msgstart = 0, length;
         unsigned char *buf;
         uint32_t ret;
-        if ((dpp->ori_len < 42)|| (dpp->buf == NULL)){
+        if ((dpp->ori_len <= 42)|| (dpp->buf == NULL)){
             return 1;
         }
         buf = dpp->buf + 42;
@@ -572,6 +564,7 @@ handle_ip_fragmentation(struct pofdp_packet *dpp)
 static uint32_t pofdp_main_task(void *arg_ptr){
     uint8_t recv_buf[POFDP_PACKET_RAW_MAX_LEN] = {0};
 	struct pofdp_packet dpp[1] = {0};
+    dpp->buf = NULL;
 	struct pof_instruction first_ins[1] = {0};
     uint32_t len_B = 0, port_id = 0;
     uint32_t ret;
@@ -596,6 +589,13 @@ static uint32_t pofdp_main_task(void *arg_ptr){
             continue;
         }
 
+		/* Check whether the first flow table exist. */
+		if(POF_OK != poflr_check_flow_table_exist(POFDP_FIRST_TABLE_ID)){
+			POF_DEBUG_CPRINT_FL(1,RED,"Received a packet, but the first flow table does NOT exist.");
+			//free_packet_data(dpp);
+			continue;
+		}
+
         ret = try_ccn(dpp);
         if (ret == 0){
 		    free_packet_data(dpp);
@@ -607,14 +607,6 @@ static uint32_t pofdp_main_task(void *arg_ptr){
 		    free_packet_data(dpp);
             continue;
         }
-       
-		/* Check whether the first flow table exist. */
-		if(POF_OK != poflr_check_flow_table_exist(POFDP_FIRST_TABLE_ID)){
-			POF_DEBUG_CPRINT_FL(1,RED,"Received a packet, but the first flow table does NOT exist.");
-			free_packet_data(dpp);
-			continue;
-		}
-
         /* Forward the packet. */
         ret = pofdp_forward(dpp, first_ins);
         POF_CHECK_RETVALUE_NO_RETURN_NO_UPWARD(ret);
