@@ -66,7 +66,7 @@ uint32_t poflr_delete_pit_entry(char *name){
     hashtb_start(pit_tab, e);
     for (i = 0; i < hashtb_n(pit_tab); i++, hashtb_next(e)){
         ce = e->data;
-        if (strncmp(ce->name, name, strlen(name)) == 0){
+        if ((ce->name != NULL) && (strncmp(ce->name, name, strlen(name)) == 0)){
             free(ce->name);
             hashtb_delete(e);
             hashtb_end(e);

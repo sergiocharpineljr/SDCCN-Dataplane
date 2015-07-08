@@ -536,7 +536,9 @@ handle_ip_fragmentation(struct pofdp_packet *dpp)
         memcpy(eh_new, eh, sizeof(struct ether_header));
         memcpy(iph_new, iph, sizeof(struct iphdr));
         memcpy(data+sheaders, ce->data, ce->size);
-        free(dpp->buf);
+        if (dpp->buf != NULL){
+            free(dpp->buf);
+        }
         dpp->buf = data;
         struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
         dpp->ori_len = sheaders + ce->size;

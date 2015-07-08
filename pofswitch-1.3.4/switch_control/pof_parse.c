@@ -228,7 +228,7 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
                     //print_cache_tab();
                     ret = poflr_add_cache_entry(cache_ptr, 0);
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
-                    print_cache_tab();
+                    //print_cache_tab();
                     break;
                 case POFCAC_MODIFY:
                     //print_cache_tab();
@@ -240,7 +240,7 @@ uint32_t  pof_parse_msg_from_controller(char* msg_ptr){
                     //print_cache_tab();
                     ret = poflr_delete_cache_entry(cache_ptr);
                     POF_CHECK_RETVALUE_RETURN_NO_UPWARD(ret);
-                    print_cache_tab();
+                    //print_cache_tab();
                     break;
                 default:
                     POF_ERROR_HANDLE_RETURN_UPWARD(POFET_CACHE_MOD_FAILED, POFTMFC_BAD_COMMAND, g_recv_xid);
