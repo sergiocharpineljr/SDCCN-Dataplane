@@ -99,3 +99,22 @@ void print_pit_tab(){
     }
     hashtb_end(e);
 }
+
+/* Match content */
+struct pit_entry* poflr_match_pit_entry(char *name){
+    struct pit_entry *pe;
+    struct hashtb_enumerator ee;
+    struct hashtb_enumerator *e = &ee;
+    int i;
+
+    hashtb_start(pit_tab, e);
+    for (i = 0; i < hashtb_n(pit_tab); i++, hashtb_next(e)){
+        pe = e->data;
+        if (strncmp(pe->name, name, strlen(pe->name)) == 0){
+            hashtb_end(e);
+            return pe;
+        }
+    }
+    hashtb_end(e);
+    return NULL;
+}

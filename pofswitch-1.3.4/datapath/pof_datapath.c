@@ -357,7 +357,7 @@ process_incoming_content(struct pofdp_packet *dpp, unsigned char *msg, size_t si
     // XXX - check PIT??
     //printf("OLHANDO PIT\n");
     //print_pit_tab();
-    if (pe = hashtb_lookup(pit_tab, name, strlen(name))){
+    if (pe = poflr_match_pit_entry(name)){
         //printf("ACHOU NA PIT\n");
         int j;
         for (j = 0; j < pe->n; j++){
@@ -536,9 +536,9 @@ handle_ip_fragmentation(struct pofdp_packet *dpp)
         memcpy(eh_new, eh, sizeof(struct ether_header));
         memcpy(iph_new, iph, sizeof(struct iphdr));
         memcpy(data+sheaders, ce->data, ce->size);
-        if (dpp->buf != NULL){
-            free(dpp->buf);
-        }
+        //if (dpp->buf != NULL){
+        //    free(dpp->buf);
+        //}
         dpp->buf = data;
         struct udphdr *udph = (struct udphdr *)(dpp->buf + sizeof(struct ether_header) + sizeof(struct iphdr));
         dpp->ori_len = sheaders + ce->size;

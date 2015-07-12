@@ -44,6 +44,7 @@ Future enhancements:
 - Create proxy objects for remote nodes (Mininet: Cluster Edition)
 """
 
+import copy
 import os
 import re
 import signal
@@ -1015,6 +1016,8 @@ class UserSwitchTesteAgregacao( UserSwitch ):
         controllers[0].ip = '127.0.0.1'
         controllers[0].port = 6622
         UserSwitch.start(self, controllers)
+        controllers[0].ip = '192.168.56.103'
+        controllers[0].port = 6666
 
 
 class OVSLegacyKernelSwitch( Switch ):

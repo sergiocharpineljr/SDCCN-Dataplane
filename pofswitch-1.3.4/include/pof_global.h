@@ -56,6 +56,7 @@
 
 /*Define the max length in byte unit of match field.*/
 #define POF_MAX_FIELD_LENGTH_IN_BYTE (16)
+//#define POF_MAX_FIELD_LENGTH_IN_BYTE (32)
 
 /*Define the max number of match field in one flow entry.*/
 #define POF_MAX_MATCH_FIELD_NUM (8)
